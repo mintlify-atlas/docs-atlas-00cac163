@@ -428,6 +428,45 @@ if (_searchText.isNotEmpty) {
 }
 ```
 
+## Driver Ratings
+
+After a delivery is completed, buyers can rate their driver experience. This helps maintain service quality and helps other buyers make informed decisions.
+
+### Rating Process
+
+When an order is delivered, buyers can:
+
+1. **Open the rating dialog** from the completed order
+2. **Select a star rating** from 1-5 stars using the `smooth_star_rating` widget
+3. **Submit the rating** which updates the driver's total rating in Firebase
+
+```dart title="lib/home_page.dart:2025-2050"
+Text('Give ${widget.driver} a rating'),
+// Star rating widget allows selection
+if (MyDialogContent.rating > 0) {
+  // Update driver's total rating in database
+  database
+      .child('Drivers')
+      .child(widget.driverId)
+      .update({
+    'totalrating': (postSnapshot.data['totalrating'] ?? 0) +
+        MyDialogContent.rating
+  });
+}
+```
+
+### Viewing Driver Ratings
+
+Driver ratings are displayed in the driver selection interface:
+
+- **Average rating** is calculated as `totalrating / totalnumber`
+- **Display format**: "Stars: X.XX/5"
+- Ratings help buyers choose reliable drivers
+
+<Info>
+Driver ratings are stored in Firebase Realtime Database under each driver's profile and updated in real-time after each completed delivery.
+</Info>
+
 ## Next Steps
 
 <CardGroup cols={2}>

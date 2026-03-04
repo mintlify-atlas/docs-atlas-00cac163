@@ -8,10 +8,6 @@
     "dark": "#003e33"
   },
   "favicon": "/favicon.svg",
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
   "navbar": {
     "primary": {
       "type": "github",
@@ -51,7 +47,9 @@
               "guides/placing-orders",
               "guides/tracking-deliveries",
               "guides/payment-methods",
-              "guides/driver-communication"
+              "guides/driver-communication",
+              "guides/settings",
+              "guides/help-and-support"
             ]
           },
           {

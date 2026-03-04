@@ -1,0 +1,265 @@
+---
+title: Settings and preferences
+description: Manage your Trackmart profile, preferences, and app settings
+---
+
+The Settings page allows you to customize your Trackmart experience, update your profile information, and configure default preferences for orders.
+
+## Accessing Settings
+
+<Steps>
+  <Step title="Open navigation menu">
+    Tap the menu icon (three horizontal lines) in the top-left corner of the home screen.
+  </Step>
+  
+  <Step title="Select Settings">
+    Scroll down in the navigation drawer and tap **Settings**.
+  </Step>
+  
+  <Step title="View your profile">
+    The Settings page displays your current profile information and preferences.
+  </Step>
+</Steps>
+
+## Profile Information
+
+Update your personal information to help drivers and support identify you.
+
+### Profile Fields
+
+<CardGroup cols={2}>
+  <Card title="Display Name" icon="user">
+    Your name shown to drivers and in chats
+  </Card>
+  <Card title="About Me" icon="info-circle">
+    Optional description or bio
+  </Card>
+  <Card title="Profile Photo" icon="camera">
+    Your avatar displayed in the app
+  </Card>
+  <Card title="Phone Number" icon="phone">
+    Contact number (set during authentication)
+  </Card>
+</CardGroup>
+
+### Updating Your Profile
+
+<Steps>
+  <Step title="Edit your display name">
+    Tap the name field and enter your preferred display name. This is what drivers will see when communicating with you.
+  </Step>
+  
+  <Step title="Update About Me (optional)">
+    Add a brief description about yourself or any relevant information for drivers (e.g., "Frequent construction material buyer").
+  </Step>
+  
+  <Step title="Change profile photo">
+    1. Tap the camera icon or your current photo
+    2. Select "Choose from gallery" to pick an image
+    3. The photo will be uploaded to Firebase Storage
+    4. Your new photo will appear in chats and your profile
+  </Step>
+  
+  <Step title="Save changes">
+    Changes are automatically saved to both Firebase Realtime Database and Cloud Firestore.
+  </Step>
+</Steps>
+
+<Info>
+Profile information is stored in Firebase and synchronized across all your devices. Changes appear immediately in active chats.
+</Info>
+
+## Order Preferences
+
+Configure default settings for your orders to speed up the ordering process.
+
+### Default Unit Preference
+
+Choose your preferred measurement unit for orders:
+
+<Tabs>
+  <Tab title="Tonne">
+    - Orders specified by weight in tonnes
+    - More precise for exact quantities
+    - **Default setting**: Tonne
+    - Common for bulk material orders
+  </Tab>
+  
+  <Tab title="Truck">
+    - Orders specified by number of truck loads
+    - Easier estimation for large orders
+    - Standard truck load sizes
+    - Faster ordering process
+  </Tab>
+</Tabs>
+
+**How to change:**
+1. Open Settings page
+2. Find the "Unit" dropdown
+3. Select either "Tonne" or "Truck"
+4. Preference is saved to SharedPreferences
+5. This becomes your default when creating new orders
+
+### Material Quality Preference
+
+Set your preferred sand quality:
+
+- **Fine sand**: For plastering, finishing work
+- **Coarse sand**: For concrete mixing, construction base
+
+**How to change:**
+1. Locate the "Quality" dropdown in Settings
+2. Select either "Fine" or "Coarse"
+3. Your preference is saved locally
+4. New orders will default to this quality
+
+<Note>
+These preferences are stored locally on your device using SharedPreferences and will default each time you create a new order. You can still change them per order.
+</Note>
+
+## Profile Photo Management
+
+Your profile photo is displayed in chats, order history, and to drivers.
+
+### Uploading a Photo
+
+```dart title="lib/settings.dart:81-110"
+Future getImage() async {
+  File image = await ImagePicker.pickImage(source: ImageSource.gallery);
+  if (image != null) {
+    setState(() {
+      avatarImageFile = image;
+      isLoading = true;
+    });
+  }
+  uploadFile();
+}
+```
+
+The upload process:
+
+1. **Image selection**: Pick from your device gallery
+2. **Firebase Storage upload**: Image stored with your user ID as filename
+3. **URL retrieval**: Get the download URL from Firebase
+4. **Database update**: URL saved to both Realtime Database and Firestore
+5. **Local cache**: URL stored in SharedPreferences for offline access
+
+<Warning>
+Profile photos are publicly visible to drivers you interact with. Don't upload sensitive or inappropriate images.
+</Warning>
+
+## Data Storage
+
+Settings data is stored in multiple locations for reliability:
+
+| Setting | Storage Location | Purpose |
+|---------|-----------------|---------|
+| Display Name | Firestore, RTDB, SharedPreferences | Profile identification |
+| About Me | Firestore, RTDB, SharedPreferences | Profile description |
+| Photo URL | Firebase Storage, RTDB, Firestore | Profile image |
+| Unit Preference | SharedPreferences | Local order default |
+| Quality Preference | SharedPreferences | Local order default |
+| Phone Number | Firebase Auth, SharedPreferences | Authentication |
+
+<Accordion title="Why multiple storage locations?">
+- **Firestore**: Used for chat features and real-time messaging
+- **Realtime Database**: Used for order management and driver coordination
+- **SharedPreferences**: Local caching for offline access and quick loading
+- **Firebase Storage**: Secure cloud storage for images
+</Accordion>
+
+## Privacy and Security
+
+### What's Visible to Others
+
+<CardGroup cols={2}>
+  <Card title="Visible to Drivers" icon="eye">
+    - Display name
+    - Profile photo
+    - Phone number (when you place an order)
+    - Chat messages
+  </Card>
+  <Card title="Private Information" icon="eye-slash">
+    - About me (only visible to you)
+    - Order history
+    - Payment information
+    - Location (except during active delivery)
+  </Card>
+</CardGroup>
+
+### Changing Your Privacy
+
+While you can't make your name completely private (needed for orders), you can:
+
+- Use a nickname instead of your full legal name
+- Upload a neutral profile photo or no photo
+- Limit information in your "About Me" field
+- Contact support to delete your account data
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Profile photo not updating">
+    - Check your internet connection
+    - Ensure the image file is under 5MB
+    - Try a different image format (JPG or PNG)
+    - Verify Firebase Storage is configured correctly
+    - Close and reopen the app
+  </Accordion>
+  
+  <Accordion title="Settings not saving">
+    - Confirm you have a stable internet connection
+    - Check that you're logged in
+    - Try logging out and back in
+    - Clear app cache and try again
+    - Contact support if the issue persists
+  </Accordion>
+  
+  <Accordion title="Can't change phone number">
+    Phone numbers are tied to your authentication and cannot be changed in Settings. To use a different number:
+    1. Log out of your current account
+    2. Sign up with a new phone number
+    3. This creates a new account (old data won't transfer)
+  </Accordion>
+  
+  <Accordion title="Default preferences not applying">
+    - Verify you saved the changes (no explicit save button - auto-saves on selection)
+    - Check SharedPreferences wasn't cleared
+    - Try setting the preference again
+    - Restart the app to reload preferences
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use a Clear Photo" icon="image">
+    A recognizable profile photo helps drivers identify you during delivery
+  </Card>
+  <Card title="Set Accurate Defaults" icon="sliders">
+    Configure your most common order preferences to save time
+  </Card>
+  <Card title="Keep Info Current" icon="arrows-rotate">
+    Update your display name if it changes to avoid confusion
+  </Card>
+  <Card title="Test Changes" icon="vial">
+    After updating settings, create a test order to verify defaults work
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Update Profile Photo" icon="camera">
+    Upload a new photo to personalize your account
+  </Card>
+  <Card title="Place an Order" icon="cart-shopping" href="/guides/placing-orders">
+    Use your new settings to place an order
+  </Card>
+  <Card title="Get Help" icon="headset" href="/guides/help-and-support">
+    Contact support if you have settings issues
+  </Card>
+  <Card title="Customize Theme" icon="palette" href="/development/theming">
+    Developers: Learn to customize app colors
+  </Card>
+</CardGroup>
