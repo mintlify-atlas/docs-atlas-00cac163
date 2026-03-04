@@ -1,0 +1,102 @@
+{
+  "projectType": "saas",
+  "projectName": "Trackmart",
+  "projectDescription": "A Flutter mobile app for ordering, tracking, and delivering goods with real-time location tracking using Firebase and Mapbox",
+  "theme": "palm",
+  "primaryColor": "#004d40",
+  "lightColor": "#005B9A",
+  "darkColor": "#003e33",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/ordering",
+              "features/tracking",
+              "features/delivery",
+              "features/messaging"
+            ]
+          },
+          {
+            "group": "User Guides",
+            "pages": [
+              "guides/authentication",
+              "guides/placing-orders",
+              "guides/tracking-deliveries",
+              "guides/payment-methods",
+              "guides/driver-communication"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/firebase-setup",
+              "configuration/mapbox-integration",
+              "configuration/notifications"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Setup",
+            "pages": [
+              "development/installation",
+              "development/project-structure",
+              "development/dependencies"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "development/architecture-overview",
+              "development/database-schema",
+              "development/state-management"
+            ]
+          },
+          {
+            "group": "Customization",
+            "pages": [
+              "development/theming",
+              "development/adding-features",
+              "development/testing"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Phone authentication with Firebase Auth",
+    "Real-time order tracking with Mapbox",
+    "In-app messaging between buyers and drivers",
+    "SQLite local database for order history",
+    "Push notifications via Firebase Cloud Messaging",
+    "Multiple payment methods (mobile money and cash)",
+    "Live driver location updates",
+    "Route visualization with distance and duration"
+  ],
+  "publicApiSurface": [
+    "LoginPage - Phone and email authentication",
+    "HomePage - Main order management interface",
+    "MapPage - Real-time tracking and route visualization",
+    "Chat - In-app messaging system",
+    "SettingsPage - User preferences and account management",
+    "CreditCardPage - Payment method configuration",
+    "Firebase Realtime Database - Driver location updates",
+    "Cloud Firestore - Chat messages and user data",
+    "Mapbox Directions API - Route calculation and navigation"
+  ]
+}
