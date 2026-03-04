@@ -1,0 +1,238 @@
+---
+title: Theming
+description: Customize the visual appearance of Trackmart with colors, fonts, and UI constants
+---
+
+## Overview
+
+Trackmart's theming system allows you to customize the app's visual appearance through color schemes and UI constants. The theme is configured using Flutter's `ThemeData` and centralized UI constants.
+
+## Theme Configuration
+
+### Primary Theme Setup
+
+The app's main theme is defined in `main.dart:12-16` using Flutter's `ThemeData`:
+
+```dart lib/main.dart
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      theme: new ThemeData(
+        primaryColor: const Color(0xff004d40),
+        primaryColorDark: const Color(0xff003e33),
+        accentColor: const Color(0xff005B9A),
+      ),
+      home: RootPage(),
+      debugShowCheckedModeBanner: false,
+    );
+  }
+}
+```
+
+<Note>
+The theme uses a teal and blue color scheme with:
+- **Primary Color**: `#004d40` (Dark Teal)
+- **Primary Color Dark**: `#003e33` (Darker Teal)
+- **Accent Color**: `#005B9A` (Blue)
+</Note>
+
+### HomePage Theme
+
+The `HomePage` widget also defines its own theme in `home_page.dart:34-38`:
+
+```dart lib/home_page.dart
+Widget build(BuildContext context) {
+  return new MaterialApp(
+    theme: new ThemeData(
+      primaryColor: const Color(0xff004d40),
+      primaryColorDark: const Color(0xff005B9A),
+      accentColor: const Color(0xff005B9A),
+    ),
+    title: "Trackmart",
+    home: new TabbedGuy(
+      onSignedout: this.onSignedout,
+      currentUserId: this.currentUserId,
+    ),
+  );
+}
+```
+
+<Warning>
+Note that `HomePage` has a slightly different theme configuration where `primaryColorDark` is set to the same value as `accentColor` (`#005B9A`).
+</Warning>
+
+## Customizing Colors
+
+### Step-by-Step Color Customization
+
+<Steps>
+  <Step title="Choose Your Color Palette">
+    Select your primary, primary dark, and accent colors. Use a color picker or design tool to find the hex values.
+  </Step>
+  
+  <Step title="Update main.dart">
+    Open `lib/main.dart` and modify the `ThemeData` in the `MyApp` widget:
+    
+    ```dart
+    theme: new ThemeData(
+      primaryColor: const Color(0xffYOURCOLOR),
+      primaryColorDark: const Color(0xffYOURCOLOR),
+      accentColor: const Color(0xffYOURCOLOR),
+    ),
+    ```
+  </Step>
+  
+  <Step title="Update home_page.dart">
+    Open `lib/home_page.dart` and update the theme in the `HomePage` widget's build method to match your color scheme.
+  </Step>
+  
+  <Step title="Test Your Changes">
+    Hot reload or restart your app to see the new colors applied throughout the interface.
+  </Step>
+</Steps>
+
+## UI Constants (uidata.dart)
+
+The `uidata.dart:1-90` file contains centralized UI constants for consistent styling across the app.
+
+### Available Constants
+
+<Accordion title="Routes">
+  ```dart
+  static const String homeRoute = "/home";
+  static const String profileOneRoute = "/View Profile";
+  static const String settingsOneRoute = "/Device Settings";
+  static const String loginOneRoute = "/Login With OTP";
+  // ... more routes
+  ```
+</Accordion>
+
+<Accordion title="Fonts">
+  ```dart
+  static const String quickFont = "Quicksand";
+  static const String ralewayFont = "Raleway";
+  static const String quickBoldFont = "Quicksand_Bold.otf";
+  static const String quickNormalFont = "Quicksand_Book.otf";
+  static const String quickLightFont = "Quicksand_Light.otf";
+  ```
+</Accordion>
+
+<Accordion title="Images">
+  ```dart
+  static const String imageDir = "assets/images";
+  static const String pkImage = "$imageDir/pk.jpg";
+  static const String profileImage = "$imageDir/profile.jpg";
+  static const String blankImage = "$imageDir/blank.jpg";
+  // ... more image paths
+  ```
+</Accordion>
+
+<Accordion title="Gradient Colors">
+  ```dart
+  static List<Color> kitGradients = [
+    Colors.blueGrey.shade800,
+    Colors.black87,
+  ];
+  
+  static List<Color> kitGradients2 = [
+    Colors.cyan.shade600,
+    Colors.blue.shade900
+  ];
+  ```
+</Accordion>
+
+### Using UI Constants
+
+To use these constants in your widgets:
+
+```dart
+import 'package:sandtrack/uidata.dart';
+
+// Using route constants
+Navigator.pushNamed(context, UIData.homeRoute);
+
+// Using image paths
+Image.asset(UIData.profileImage)
+
+// Using gradients
+Container(
+  decoration: BoxDecoration(
+    gradient: LinearGradient(
+      colors: UIData.kitGradients,
+    ),
+  ),
+)
+```
+
+## Color Usage Throughout the App
+
+Colors from the theme are used extensively throughout the app:
+
+<CardGroup cols={2}>
+  <Card title="Primary Color" icon="palette">
+    Used for app bars, major UI elements, and branding
+    ```dart
+    Theme.of(context).primaryColor
+    ```
+  </Card>
+  
+  <Card title="Primary Color Dark" icon="moon">
+    Used for darker variants of primary elements and icons
+    ```dart
+    Theme.of(context).primaryColorDark
+    ```
+  </Card>
+  
+  <Card title="Accent Color" icon="star">
+    Used for interactive elements, progress indicators, and highlights
+    ```dart
+    Theme.of(context).accentColor
+    ```
+  </Card>
+  
+  <Card title="Random Colors" icon="shuffle">
+    UIData provides a utility for random colors
+    ```dart
+    UIData.next() // Returns random color
+    ```
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+<Tip>
+**Consistency is Key**: Always use `Theme.of(context)` to access colors rather than hardcoding color values. This ensures your custom theme is applied throughout the app.
+</Tip>
+
+<Info>
+**Adding New UI Constants**: When adding new reusable values (routes, strings, colors), add them to `uidata.dart` to maintain centralization.
+</Info>
+
+## Examples
+
+### Custom Loading Indicator
+
+```dart
+CircularProgressIndicator(
+  valueColor: AlwaysStoppedAnimation<Color>(
+    Theme.of(context).accentColor
+  ),
+)
+```
+
+This pattern is used in `home_page.dart:347-348` for consistency.
+
+### Themed Text
+
+```dart
+Text(
+  'Trackmart',
+  style: TextStyle(
+    fontSize: 20,
+    color: Theme.of(context).accentColor
+  )
+)
+```
+
+Used in the loading screen at `home_page.dart:310-312`.

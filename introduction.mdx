@@ -1,0 +1,230 @@
+---
+title: Introduction to Trackmart
+description: A Flutter mobile app for ordering, tracking, and delivering goods with real-time location tracking powered by Firebase and Mapbox
+---
+
+## What is Trackmart?
+
+Trackmart is a comprehensive delivery management mobile application built with Flutter that enables seamless ordering, real-time tracking, and delivery of goods. The app provides a complete solution for connecting buyers with drivers, managing orders, and tracking deliveries with live map visualization.
+
+<Note>
+  Trackmart uses Firebase for backend services and Mapbox for advanced mapping and routing capabilities.
+</Note>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Order Management" icon="shopping-cart">
+    Place orders with customizable quantities, units (Truck/Tonne), and payment methods (Mobile money/Cash)
+  </Card>
+  <Card title="Real-time Tracking" icon="location-dot">
+    Track deliveries in real-time with live driver location updates and ETA calculations
+  </Card>
+  <Card title="Chat System" icon="messages">
+    Communicate directly with drivers through an integrated messaging system
+  </Card>
+  <Card title="Authentication" icon="shield-check">
+    Secure authentication via phone number (SMS verification) or email
+  </Card>
+</CardGroup>
+
+## Architecture Overview
+
+Trackmart follows a modern Flutter architecture with clear separation of concerns:
+
+### Frontend Layer
+
+<AccordionGroup>
+  <Accordion title="Main Entry Point">
+    The app initializes through `main.dart` with a custom theme and routes to the `RootPage` for authentication handling.
+
+    ```dart lib/main.dart
+    void main() => runApp(MyApp());
+
+    class MyApp extends StatelessWidget {
+      @override
+      Widget build(BuildContext context) {
+        return MaterialApp(
+          theme: new ThemeData(
+            primaryColor: const Color(0xff004d40),
+            primaryColorDark: const Color(0xff003e33),
+            accentColor: const Color(0xff005B9A),
+          ),
+          home: RootPage(),
+          debugShowCheckedModeBanner: false,
+        );
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Authentication Flow">
+    The `RootPage` manages authentication state and routes users to either login or the home page:
+
+    ```dart lib/root_page.dart
+    enum AuthStatus { notSignedIn, signedIn, loading }
+
+    class RootPageState extends State<RootPage> {
+      AuthStatus authStatus = AuthStatus.loading;
+      String currentUserId;
+
+      @override
+      Widget build(BuildContext context) {
+        switch (authStatus) {
+          case AuthStatus.notSignedIn:
+            return new LoginPage(
+              onSignedIn: _signedIn,
+              login: this.login,
+            );
+          case AuthStatus.signedIn:
+            return new HomePage(
+              onSignedout: _signedOut,
+              currentUserId: this.currentUserId,
+            );
+          case AuthStatus.loading:
+            return new Scaffold(
+              body: Center(
+                child: Icon(Icons.local_shipping, size:120),
+              ),
+            );
+        }
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Home Page Structure">
+    The home page features a tabbed interface with three main sections:
+    - **Chats**: Message drivers directly
+    - **Request**: Create new delivery orders
+    - **Orders**: View order history (Requested, In Transit, Delivered)
+  </Accordion>
+</AccordionGroup>
+
+### Backend Services
+
+<Tabs>
+  <Tab title="Firebase Realtime Database">
+    Used for real-time data synchronization:
+    - User profiles (buyers and drivers)
+    - Order requests and status updates
+    - Live location tracking
+    - Driver availability status
+  </Tab>
+  <Tab title="Cloud Firestore">
+    Used for structured data storage:
+    - User collections with detailed profiles
+    - Chat messages
+    - Driver information with search capabilities
+  </Tab>
+  <Tab title="Firebase Authentication">
+    Handles user authentication with:
+    - Phone number authentication (SMS verification)
+    - Email/password authentication
+    - Email verification flows
+  </Tab>
+  <Tab title="Firebase Cloud Messaging">
+    Push notifications for:
+    - New order requests
+    - Order status updates
+    - Chat messages
+  </Tab>
+</Tabs>
+
+### Mapping & Location Services
+
+<Info>
+  Trackmart integrates Mapbox for superior mapping capabilities and uses Geolocator for precise location tracking.
+</Info>
+
+**Core Mapping Features:**
+- Real-time route calculation between buyer and driver
+- Distance and duration estimates
+- ETA calculations based on current traffic
+- Live polyline rendering for route visualization
+- Custom markers for buyers and drivers
+
+```dart lib/map.dart
+var url = 'https://api.mapbox.com/directions/v5/mapbox/driving/'
+          '${dlong},${dlat};${widget.ulong},${widget.ulat}'
+          '?access_token=YOUR_MAPBOX_TOKEN';
+
+http.get(url).then((response) {
+  route = json.decode(response.body)['routes'][0];
+  var k = PolylinePoints().decodePolyline(route['geometry']);
+  setState(() {
+    points = List.generate(k.length, (i) {
+      return LatLng(k[i].latitude, k[i].longitude);
+    });
+    distance = '${(route['distance'] / 1000).toStringAsFixed(2)}km';
+    duration = '${(route['duration'] / 60).toStringAsFixed(0)}min';
+  });
+});
+```
+
+## Tech Stack
+
+| Category | Technology | Version |
+|----------|------------|----------|
+| Framework | Flutter | SDK 2.2.0 - 3.0.0 |
+| Backend | Firebase Auth | ^0.11.1+7 |
+| Database | Cloud Firestore | 0.12.7+1 |
+| Database | Firebase Realtime DB | 3.0.5 |
+| Messaging | Firebase Messaging | 5.1.2 |
+| Maps | Mapbox (via flutter_map) | 0.7.0+2 |
+| Location | Geolocator | 5.1.1+1 |
+| Networking | Dio | 2.1.13 |
+| State Management | setState (Built-in) | - |
+
+<Warning>
+  This app uses older versions of Flutter packages. Consider upgrading to the latest versions for production use.
+</Warning>
+
+## Order Workflow
+
+<Steps>
+  <Step title="User Authentication">
+    Users sign up or log in using phone number or email authentication
+  </Step>
+  <Step title="Driver Selection">
+    Browse available drivers via list or map view with real-time distances and ETAs
+  </Step>
+  <Step title="Order Configuration">
+    Specify quantity, unit type (Truck/Tonne), and payment method
+  </Step>
+  <Step title="Request Delivery">
+    Submit order request to selected driver with calculated pricing
+  </Step>
+  <Step title="Real-time Tracking">
+    Track driver's location with live map updates and route visualization
+  </Step>
+  <Step title="Order Completion">
+    Receive delivery and rate the service
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get up and running in minutes with step-by-step setup
+  </Card>
+  <Card title="Firebase Setup" icon="fire" href="/configuration/firebase-setup">
+    Configure Firebase for authentication and real-time data
+  </Card>
+  <Card title="Mapbox Integration" icon="map" href="/configuration/mapbox-integration">
+    Set up Mapbox for location tracking and route visualization
+  </Card>
+  <Card title="Development Guide" icon="code" href="/development/installation">
+    Set up your development environment and start building
+  </Card>
+  <Card title="Firebase Setup" icon="fire" href="/firebase-setup">
+    Configure Firebase services for the app
+  </Card>
+  <Card title="Mapbox Integration" icon="map" href="/mapbox-setup">
+    Set up Mapbox for mapping features
+  </Card>
+  <Card title="Deployment" icon="cloud-arrow-up" href="/deployment">
+    Deploy Trackmart to production
+  </Card>
+</CardGroup>

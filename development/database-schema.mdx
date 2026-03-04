@@ -1,0 +1,645 @@
+---
+title: Database Schema
+description: Complete database schema documentation for Firebase Realtime Database, Cloud Firestore, and local SQLite storage
+---
+
+Trackmart uses a hybrid database architecture combining Firebase Realtime Database, Cloud Firestore, and local SQLite storage. Each database serves specific purposes optimized for different types of data and access patterns.
+
+## Database Architecture Overview
+
+<CardGroup cols={3}>
+  <Card title="Firebase Realtime Database" icon="fire">
+    Used for real-time driver tracking, order requests, and location data that requires low-latency updates.
+  </Card>
+  
+  <Card title="Cloud Firestore" icon="cloud">
+    Handles chat messages, user profiles, and data requiring complex queries and better offline support.
+  </Card>
+  
+  <Card title="SQLite (Local)" icon="database">
+    Stores order history locally for quick access and offline viewing.
+  </Card>
+</CardGroup>
+
+## Firebase Realtime Database Schema
+
+The Realtime Database is structured as a JSON tree with the following root-level nodes:
+
+### Schema Structure
+
+```json
+{
+  "Drivers": {
+    "<driverId>": {
+      "displayName": "string",
+      "phoneNo": "string",
+      "id": "string",
+      "lat": number,
+      "long": number,
+      "status": boolean,
+      "requests": {
+        "<requestKey>": { /* Order object */ }
+      }
+    }
+  },
+  "buyers": {
+    "<userId>": {
+      "displayName": "string",
+      "phoneNo": "string",
+      "lat": number,
+      "long": number,
+      "deviceToken": "string",
+      "requests": {
+        "<requestKey>": { /* Order object */ }
+      },
+      "transit": {
+        "<orderKey>": { /* Order object */ }
+      }
+    }
+  },
+  "users": {
+    "<userId>": {
+      "deviceToken": "string"
+    }
+  }
+}
+```
+
+### Drivers Collection
+
+Stores real-time driver information and availability.
+
+<Accordion title="Drivers Schema Details">
+
+**Path:** `/Drivers/<driverId>`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `displayName` | string | Driver's full name |
+| `phoneNo` | string | Contact phone number |
+| `id` | string | Unique driver identifier |
+| `lat` | number | Current latitude position |
+| `long` | number | Current longitude position |
+| `status` | boolean | Availability status (true = available) |
+| `requests` | object | Pending delivery requests |
+
+**Example:**
+```json
+{
+  "Drivers": {
+    "driver_abc123": {
+      "displayName": "John Doe",
+      "phoneNo": "+254712345678",
+      "id": "driver_abc123",
+      "lat": -1.286389,
+      "long": 36.817223,
+      "status": true,
+      "requests": {
+        "O:1678901234567": {
+          "userId": "buyer_xyz789",
+          "quantity": 2.0,
+          "unit": "Tonne",
+          "price": 15000,
+          "timestamp": 1678901234567
+        }
+      }
+    }
+  }
+}
+```
+
+</Accordion>
+
+<Info>
+Driver locations are updated in real-time via Firebase listeners in `map.dart:49`. The app listens to changes at `/Drivers/<driverId>` to track driver movement during deliveries.
+</Info>
+
+### Buyers Collection
+
+Stores buyer/customer data and their order history.
+
+<Accordion title="Buyers Schema Details">
+
+**Path:** `/buyers/<userId>`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `displayName` | string | Buyer's name |
+| `phoneNo` | string | Contact phone number |
+| `lat` | number | Current/last known latitude |
+| `long` | number | Current/last known longitude |
+| `deviceToken` | string | FCM token for push notifications |
+| `requests` | object | Active delivery requests |
+| `transit` | object | Orders currently in delivery |
+
+**Example:**
+```json
+{
+  "buyers": {
+    "buyer_xyz789": {
+      "displayName": "Jane Smith",
+      "phoneNo": "+254723456789",
+      "lat": -1.292066,
+      "long": 36.821945,
+      "deviceToken": "fcm_token_here",
+      "requests": {
+        "O:1678901234567": {
+          "driverId": "driver_abc123",
+          "driverName": "John Doe",
+          "quantity": 2.0,
+          "unit": "Tonne",
+          "payment": "Mobile money",
+          "price": 15000,
+          "timestamp": 1678901234567
+        }
+      },
+      "transit": {
+        "O:1678902345678": {
+          "driverId": "driver_def456",
+          "driverName": "Mike Johnson",
+          "destlat": -1.292066,
+          "destlong": 36.821945,
+          "quantity": 1.5,
+          "timestamp": 1678902345678
+        }
+      }
+    }
+  }
+}
+```
+
+</Accordion>
+
+<Warning>
+Buyer locations are updated continuously (every 10 meters) while the app is active. This generates frequent database writes. Consider implementing rate limiting for production use.
+</Warning>
+
+### Order Object Structure
+
+Orders are stored in both driver and buyer nodes with consistent structure:
+
+```typescript
+interface Order {
+  userId: string;           // Buyer's user ID
+  userName: string;         // Buyer's display name
+  userPhone?: string;       // Buyer's phone number
+  driverId: string;         // Driver's ID
+  driverName: string;       // Driver's name
+  driverPhone: string;      // Driver's phone
+  destlat: number;          // Delivery destination latitude
+  destlong: number;         // Delivery destination longitude
+  quantity: number;         // Amount ordered
+  unit: string;             // Unit type ("Tonne" | "Truck")
+  payment: string;          // Payment method ("Mobile money" | "Cash")
+  price: number;            // Price per unit
+  timestamp: number;        // Order creation time (milliseconds)
+}
+```
+
+**Order Key Format:** `O:<timestamp>`
+
+Example: `O:1678901234567`
+
+### Database Operations
+
+<CodeGroup>
+```dart Create Order Request
+_requestDelivery(Order order, BuildContext context) async {
+  String key = 'O:${DateTime.now().millisecondsSinceEpoch}';
+  
+  // Add to driver's requests
+  await databaseReference
+      .child('Drivers')
+      .child(order.driverId)
+      .child('requests')
+      .update({
+        key: order.toMap(currentUserId),
+      });
+  
+  // Add to buyer's requests
+  await databaseReference
+      .child('buyers')
+      .child(currentUserId)
+      .child('requests')
+      .update({
+        key: order.toMap(currentUserId),
+      });
+}
+```
+
+```dart Update Location
+_updateLocation(Position position) {
+  databaseReference
+      .child('buyers')
+      .child(currentUserId)
+      .update({
+        'lat': position.latitude,
+        'long': position.longitude,
+      });
+}
+```
+
+```dart Query Available Drivers
+FirebaseDatabase.instance
+    .reference()
+    .child('Drivers')
+    .orderByChild('status')
+    .equalTo(true)
+    .onValue
+    .listen((event) {
+      // Process available drivers
+    });
+```
+</CodeGroup>
+
+## Cloud Firestore Schema
+
+Firestore is used for structured data requiring complex queries and better offline support.
+
+### Collections Structure
+
+```
+firestore
+├── users/
+│   └── <userId>
+│       ├── displayName: string
+│       ├── phoneNo: string
+│       ├── photoUrl: string
+│       ├── pushToken: string
+│       ├── aboutMe: string
+│       └── chattingWith: string
+│
+├── drivers/
+│   └── <driverId>
+│       ├── displayName: string
+│       ├── phoneNo: string
+│       ├── photoUrl: string
+│       └── status: boolean
+│
+├── buyers/
+│   └── <buyerId>
+│       ├── displayName: string
+│       ├── phoneNo: string
+│       ├── photoUrl: string
+│       └── chattingWith: string
+│
+└── messages/
+    └── <groupChatId>/
+        └── <groupChatId>/
+            └── <timestamp>
+                ├── idFrom: string
+                ├── idTo: string
+                ├── timestamp: string
+                ├── content: string
+                └── type: number
+```
+
+### Users Collection
+
+<Accordion title="Users Collection Schema">
+
+**Path:** `/users/<userId>`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `displayName` | string | User's full name |
+| `phoneNo` | string | Phone number |
+| `photoUrl` | string | Profile picture URL |
+| `pushToken` | string | FCM device token |
+| `aboutMe` | string | User bio/description |
+| `chattingWith` | string | Currently chatting with user ID |
+
+**Example Document:**
+```json
+{
+  "displayName": "Jane Smith",
+  "phoneNo": "+254723456789",
+  "photoUrl": "https://storage.googleapis.com/...",
+  "pushToken": "fcm_token_abc123",
+  "aboutMe": "Regular customer",
+  "chattingWith": "driver_abc123"
+}
+```
+
+</Accordion>
+
+### Drivers Collection (Firestore)
+
+Mirrors some driver data from Realtime Database for chat functionality.
+
+**Path:** `/drivers/<driverId>`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `displayName` | string | Driver's name |
+| `phoneNo` | string | Contact number |
+| `photoUrl` | string | Profile picture |
+| `status` | boolean | Online/offline status |
+
+### Messages Collection
+
+Stores all chat messages between buyers and drivers.
+
+<Accordion title="Messages Collection Schema">
+
+**Path:** `/messages/<groupChatId>/<groupChatId>/<messageId>`
+
+**Group Chat ID Format:** Messages are grouped by a composite key created from sender and receiver IDs:
+
+```dart chat.dart
+if (id.hashCode <= peerId.hashCode) {
+  groupChatId = '$id-$peerId';
+} else {
+  groupChatId = '$peerId-$id';
+}
+```
+
+**Message Document:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `idFrom` | string | Sender's user ID |
+| `idTo` | string | Recipient's user ID |
+| `timestamp` | string | Message timestamp (milliseconds) |
+| `content` | string | Message content (text/URL) |
+| `type` | number | Message type (0=text, 1=image, 2=sticker) |
+
+**Example:**
+```json
+{
+  "messages": {
+    "buyer_xyz789-driver_abc123": {
+      "buyer_xyz789-driver_abc123": {
+        "1678901234567": {
+          "idFrom": "buyer_xyz789",
+          "idTo": "driver_abc123",
+          "timestamp": "1678901234567",
+          "content": "Hello, when will you arrive?",
+          "type": 0
+        },
+        "1678901235678": {
+          "idFrom": "driver_abc123",
+          "idTo": "buyer_xyz789",
+          "timestamp": "1678901235678",
+          "content": "I'll be there in 15 minutes",
+          "type": 0
+        }
+      }
+    }
+  }
+}
+```
+
+</Accordion>
+
+<Tip>
+Messages are limited to 20 per query for performance. Implement pagination for longer chat histories.
+</Tip>
+
+### Firestore Operations
+
+<CodeGroup>
+```dart Send Message
+void onSendMessage(String content, int type) {
+  var documentReference = firestore
+      .collection('messages')
+      .document(groupChatId)
+      .collection(groupChatId)
+      .document(DateTime.now().millisecondsSinceEpoch.toString());
+  
+  firestore.runTransaction((transaction) async {
+    await transaction.set(documentReference, {
+      'idFrom': id,
+      'idTo': peerId,
+      'timestamp': DateTime.now().millisecondsSinceEpoch.toString(),
+      'content': content,
+      'type': type
+    });
+  });
+}
+```
+
+```dart Load Messages
+StreamBuilder(
+  stream: firestore
+      .collection('messages')
+      .document(groupChatId)
+      .collection(groupChatId)
+      .orderBy('timestamp', descending: true)
+      .limit(20)
+      .snapshots(),
+  builder: (context, snapshot) {
+    // Render messages
+  }
+)
+```
+
+```dart Update User Profile
+await firestore.collection('users')
+    .document(id)
+    .updateData({
+      'displayName': displayName,
+      'photoUrl': photoUrl,
+      'aboutMe': aboutMe,
+    });
+```
+</CodeGroup>
+
+## Local SQLite Storage
+
+Trackmart uses SQLite for local storage of order history, enabling offline access and faster loading.
+
+### History Table Schema
+
+```sql
+CREATE TABLE history (
+  id TEXT PRIMARY KEY,
+  driverId TEXT NOT NULL,
+  driverName TEXT NOT NULL,
+  driverPhone TEXT,
+  userId TEXT NOT NULL,
+  userName TEXT NOT NULL,
+  quantity REAL NOT NULL,
+  unit TEXT NOT NULL,
+  payment TEXT NOT NULL,
+  price REAL NOT NULL,
+  timestamp INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  destlat REAL,
+  destlong REAL
+);
+```
+
+**Status Values:**
+- `REQUESTED` - Order placed, awaiting driver acceptance
+- `TRANSIT` - Order accepted, delivery in progress
+- `DELIVERED` - Order completed
+
+### SQLite Operations
+
+<CodeGroup>
+```dart Initialize Database
+Future<Database> initDatabase() async {
+  String dbPath = await getDatabasesPath();
+  String path = join(dbPath, 'trackmart.db');
+  
+  return await openDatabase(
+    path,
+    version: 1,
+    onCreate: (Database db, int version) async {
+      await db.execute(
+        'CREATE TABLE history (...)'
+      );
+    },
+  );
+}
+```
+
+```dart Save Order to History
+Future<void> saveOrderToHistory(Order order) async {
+  final db = await database;
+  
+  await db.insert(
+    'history',
+    order.toMap(),
+    conflictAlgorithm: ConflictAlgorithm.replace,
+  );
+}
+```
+
+```dart Query History
+Future<List<Order>> getOrderHistory() async {
+  final db = await database;
+  
+  final List<Map<String, dynamic>> maps = await db.query(
+    'history',
+    orderBy: 'timestamp DESC',
+  );
+  
+  return List.generate(maps.length, (i) {
+    return Order.fromMap(maps[i]);
+  });
+}
+```
+</CodeGroup>
+
+## Data Synchronization
+
+### Realtime Database ↔ Firestore Sync
+
+Certain data is mirrored between Realtime Database and Firestore:
+
+<Steps>
+  <Step title="User Registration">
+    When a user signs in, their profile is created/updated in both databases.
+  </Step>
+  
+  <Step title="Token Updates">
+    FCM tokens are stored in both `/users/<userId>/deviceToken` (RTDB) and `/users/<userId>/pushToken` (Firestore).
+  </Step>
+  
+  <Step title="Driver Profiles">
+    Driver information is maintained in both databases for different use cases:
+    - RTDB: Real-time location and availability
+    - Firestore: Profile data for chat interface
+  </Step>
+</Steps>
+
+### Cloud ↔ Local Sync
+
+Order history is synced from Firebase to local SQLite:
+
+```dart home_page.dart
+_getHistory() async {
+  // Fetch from SQLite first for instant display
+  final db = await database;
+  List<Map> result = await db.query('history');
+  
+  setState(() {
+    _history = result.map((item) => 
+      HistoryItem.fromMap(item)
+    ).toList();
+  });
+  
+  // Then sync with Firebase in background
+  // ...
+}
+```
+
+## Database Indexes
+
+### Realtime Database Indexes
+
+**Required indexes in Firebase Console:**
+
+```json firebase-indexes.json
+{
+  "rules": {
+    "Drivers": {
+      ".indexOn": ["status", "lat", "long"]
+    },
+    "buyers": {
+      "$userId": {
+        "requests": {
+          ".indexOn": ["timestamp"]
+        },
+        "transit": {
+          ".indexOn": ["timestamp"]
+        }
+      }
+    }
+  }
+}
+```
+
+### Firestore Indexes
+
+**Composite indexes:**
+
+- Collection: `messages/<groupChatId>/<groupChatId>`
+  - Fields: `timestamp` (Descending)
+  - Query scope: Collection
+
+## Data Retention
+
+<Warning>
+Implement appropriate data retention policies:
+
+- **Active Orders**: Keep in Realtime Database until delivery completion
+- **Completed Orders**: Move to history (SQLite) after 24 hours
+- **Chat Messages**: Retain for 30 days, then archive or delete
+- **Location History**: Only keep current location, no historical tracking
+</Warning>
+
+## Security Considerations
+
+<CardGroup cols={2}>
+  <Card title="Firebase Rules" icon="shield">
+    Implement proper security rules to restrict access:
+    - Users can only read/write their own data
+    - Drivers can only update their own location
+    - Messages require authentication
+  </Card>
+  
+  <Card title="Data Encryption" icon="lock">
+    - Use Firebase Authentication for secure access
+    - Enable SSL/TLS for all connections
+    - Store sensitive tokens in secure storage
+  </Card>
+</CardGroup>
+
+## Related Documentation
+
+<CardGroup cols={3}>
+  <Card title="Architecture Overview" icon="diagram-project" href="./architecture-overview">
+    Learn about the overall app architecture
+  </Card>
+  
+  <Card title="State Management" icon="sitemap" href="./state-management">
+    Understand state management patterns
+  </Card>
+  
+  <Card title="API Integration" icon="plug" href="./api-integration">
+    Explore external API usage
+  </Card>
+</CardGroup>

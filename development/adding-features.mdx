@@ -1,0 +1,460 @@
+---
+title: Adding Features
+description: Guide for extending Trackmart with new pages, Firebase features, and screens
+---
+
+## Overview
+
+Trackmart is built with Flutter and Firebase, providing a foundation for ordering, tracking, and delivering goods. This guide will help you extend the app with new features.
+
+## App Architecture
+
+### Core Structure
+
+<CardGroup cols={2}>
+  <Card title="Entry Point" icon="door-open">
+    `main.dart` - App initialization and theme setup
+  </Card>
+  
+  <Card title="Authentication" icon="lock">
+    `root_page.dart` and `login_page.dart` - User authentication flow
+  </Card>
+  
+  <Card title="Home Interface" icon="home">
+    `home_page.dart` - Main tabbed interface with Chats, Request, and Orders
+  </Card>
+  
+  <Card title="Feature Pages" icon="window-maximize">
+    `map.dart`, `chat.dart`, `settings.dart`, `about.dart`, `contact.dart`, `support.dart`
+  </Card>
+</CardGroup>
+
+### Firebase Integration
+
+Trackmart uses multiple Firebase services:
+
+- **Firebase Realtime Database** - Real-time data synchronization for orders and drivers
+- **Cloud Firestore** - Document-based storage for driver profiles
+- **Firebase Authentication** - User authentication
+- **Firebase Storage** - Image and file storage
+- **Firebase Messaging** - Push notifications
+
+## Adding a New Page
+
+<Steps>
+  <Step title="Create the Page File">
+    Create a new Dart file in `lib/` directory:
+    
+    ```bash
+    touch lib/my_new_page.dart
+    ```
+  </Step>
+  
+  <Step title="Define the Page Widget">
+    Create a StatelessWidget or StatefulWidget:
+    
+    ```dart lib/my_new_page.dart
+    import 'package:flutter/material.dart';
+    
+    class MyNewPage extends StatelessWidget {
+      @override
+      Widget build(BuildContext context) {
+        return Scaffold(
+          appBar: AppBar(
+            title: Text('My New Feature'),
+          ),
+          body: Center(
+            child: Text('Your content here'),
+          ),
+        );
+      }
+    }
+    ```
+  </Step>
+  
+  <Step title="Apply App Theme">
+    Use the app's theme for consistency:
+    
+    ```dart
+    return MaterialApp(
+      theme: new ThemeData(
+        primaryColor: const Color(0xff004d40),
+        primaryColorDark: const Color(0xff003e33),
+        accentColor: const Color(0xff005B9A),
+      ),
+      home: Scaffold(
+        // Your page content
+      ),
+    );
+    ```
+  </Step>
+  
+  <Step title="Navigate to the Page">
+    Add navigation from an existing page:
+    
+    ```dart
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => MyNewPage()),
+    );
+    ```
+  </Step>
+</Steps>
+
+### Example: Adding to Navigation Drawer
+
+The app uses a drawer menu in `home_page.dart:325-442`. To add your page to the drawer:
+
+```dart lib/home_page.dart
+ListTile(
+  title: Text('My New Feature'),
+  trailing: Icon(
+    Icons.new_releases,
+    color: Theme.of(context).accentColor,
+  ),
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => MyNewPage()),
+    );
+  },
+),
+```
+
+<Note>
+Add this `ListTile` within the `ListView` children in the `Drawer` widget around line 377-441.
+</Note>
+
+## Integrating Firebase Features
+
+### Setting Up Firebase References
+
+In `home_page.dart:182-188`, the app initializes Firebase:
+
+```dart
+Future<bool> _startup() async {
+  database = FirebaseDatabase.instance;
+  database.setPersistenceEnabled(true);
+  database.setPersistenceCacheSizeBytes(10000000);
+  databaseReference = database.reference();
+  await cf.Firestore.instance.settings(persistenceEnabled: true);
+  firestore = cf.Firestore.instance;
+  // ...
+}
+```
+
+### Using Realtime Database
+
+<Tabs>
+  <Tab title="Reading Data">
+    ```dart
+    databaseReference
+      .child('buyers')
+      .child(currentUserId)
+      .child('orders')
+      .onValue
+      .listen((event) {
+        var snapshot = event.snapshot;
+        // Process data
+      });
+    ```
+  </Tab>
+  
+  <Tab title="Writing Data">
+    ```dart
+    await databaseReference
+      .child('buyers')
+      .child(currentUserId)
+      .update({
+        'fieldName': value,
+      });
+    ```
+  </Tab>
+  
+  <Tab title="StreamBuilder Pattern">
+    ```dart
+    StreamBuilder(
+      stream: databaseReference
+        .child('buyers')
+        .child(currentUserId)
+        .child('requests')
+        .onValue,
+      builder: (context, snap) {
+        if (!snap.hasData || snap.hasError) {
+          return CircularProgressIndicator();
+        }
+        // Build UI with data
+        return ListView(/* ... */);
+      },
+    )
+    ```
+  </Tab>
+</Tabs>
+
+See `home_page.dart:1204-1298` for a complete example of using StreamBuilder with Realtime Database.
+
+### Using Cloud Firestore
+
+<Tabs>
+  <Tab title="Reading Collection">
+    ```dart
+    StreamBuilder(
+      stream: firestore.collection('drivers').snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return CircularProgressIndicator();
+        }
+        return ListView.builder(
+          itemCount: snapshot.data.documents.length,
+          itemBuilder: (context, index) {
+            var document = snapshot.data.documents[index];
+            return ListTile(
+              title: Text(document['displayName']),
+            );
+          },
+        );
+      },
+    )
+    ```
+  </Tab>
+  
+  <Tab title="Writing Document">
+    ```dart
+    await firestore
+      .collection('myCollection')
+      .document('documentId')
+      .setData({
+        'field1': 'value1',
+        'field2': 'value2',
+      });
+    ```
+  </Tab>
+</Tabs>
+
+See `home_page.dart:989-1007` for Firestore collection streaming example.
+
+## Adding a New Screen with Tabs
+
+The home page uses a `TabController` pattern (see `home_page.dart:253`):
+
+```dart
+_tabController = TabController(
+  vsync: this,
+  length: 3,
+  initialIndex: 1
+);
+```
+
+### Creating a Tabbed Interface
+
+<Steps>
+  <Step title="Initialize TabController">
+    ```dart
+    class _MyPageState extends State<MyPage> with SingleTickerProviderStateMixin {
+      TabController _tabController;
+      
+      @override
+      void initState() {
+        super.initState();
+        _tabController = TabController(
+          vsync: this,
+          length: 2, // Number of tabs
+          initialIndex: 0,
+        );
+      }
+    }
+    ```
+  </Step>
+  
+  <Step title="Add TabBar to AppBar">
+    ```dart
+    AppBar(
+      title: Text('My Tabbed Page'),
+      bottom: TabBar(
+        controller: _tabController,
+        tabs: [
+          Tab(text: 'Tab 1'),
+          Tab(text: 'Tab 2'),
+        ],
+      ),
+    )
+    ```
+  </Step>
+  
+  <Step title="Create TabBarView">
+    ```dart
+    body: TabBarView(
+      controller: _tabController,
+      children: [
+        // Tab 1 content
+        Center(child: Text('Tab 1')),
+        // Tab 2 content
+        Center(child: Text('Tab 2')),
+      ],
+    )
+    ```
+  </Step>
+  
+  <Step title="Dispose Controller">
+    ```dart
+    @override
+    void dispose() {
+      _tabController.dispose();
+      super.dispose();
+    }
+    ```
+  </Step>
+</Steps>
+
+## Working with Location Services
+
+Trackmart uses the `geolocator` package for location tracking. See `home_page.dart:193-204`:
+
+```dart
+var geolocator = Geolocator();
+await geolocator
+  .getCurrentPosition(desiredAccuracy: LocationAccuracy.best)
+  .then((value) {
+    Position position = value;
+    _updateLocation(position);
+    var locationOptions = LocationOptions(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 10
+    );
+    geolocator.getPositionStream(locationOptions).listen((Position position) {
+      _updateLocation(position);
+    });
+  });
+```
+
+<Info>
+The location is automatically updated in Firebase when it changes (see `home_page.dart:169-179`).
+</Info>
+
+## Adding Dependencies
+
+<Steps>
+  <Step title="Update pubspec.yaml">
+    Add your dependency to `pubspec.yaml`:
+    
+    ```yaml
+    dependencies:
+      your_package: ^1.0.0
+    ```
+  </Step>
+  
+  <Step title="Install Package">
+    ```bash
+    flutter pub get
+    ```
+  </Step>
+  
+  <Step title="Import in Your Code">
+    ```dart
+    import 'package:your_package/your_package.dart';
+    ```
+  </Step>
+</Steps>
+
+## State Management Patterns
+
+### StatefulWidget with setState
+
+The app primarily uses `setState` for state management:
+
+```dart
+void _updateValue() {
+  if (mounted) {
+    setState(() {
+      // Update your state variables
+      myValue = newValue;
+    });
+  }
+}
+```
+
+<Warning>
+Always check `mounted` before calling `setState` to avoid errors when the widget is no longer in the tree.
+</Warning>
+
+### SharedPreferences for Persistence
+
+User data is cached using SharedPreferences (see `home_page.dart:189-192`):
+
+```dart
+prefs = await SharedPreferences.getInstance();
+currentUserName = prefs.getString('displayName');
+currentUserPhone = prefs.getString('phoneNo');
+currentUserPhoto = prefs.getString('photoUrl');
+```
+
+## Common UI Patterns
+
+### Loading States
+
+```dart
+_stillLoading
+  ? Center(child: CircularProgressIndicator())
+  : YourContentWidget()
+```
+
+### Modal Dialogs
+
+```dart
+showDialog<void>(
+  context: context,
+  builder: (BuildContext context) {
+    return AlertDialog(
+      title: Text(
+        'Dialog Title',
+        style: TextStyle(color: Theme.of(context).accentColor),
+      ),
+      content: Text('Dialog content'),
+      actions: <Widget>[
+        FlatButton(
+          child: Text('OK'),
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+        ),
+      ],
+    );
+  },
+);
+```
+
+See `home_page.dart:876-928` for a complete confirmation dialog example.
+
+### Form Input with TextEditingController
+
+```dart
+final TextEditingController _controller = TextEditingController();
+
+TextField(
+  controller: _controller,
+  decoration: InputDecoration(
+    labelText: 'Enter value',
+  ),
+  onChanged: (value) {
+    // Handle changes
+  },
+)
+```
+
+## Best Practices
+
+<Tip>
+**Hot Reload**: Use Flutter's hot reload during development to see changes instantly without losing app state.
+</Tip>
+
+<Tip>
+**Error Handling**: Always wrap Firebase calls in try-catch blocks or use `.catchError()` to handle errors gracefully.
+</Tip>
+
+<Tip>
+**Theme Consistency**: Use `Theme.of(context)` to access theme colors for consistent UI across all features.
+</Tip>
+
+<Warning>
+**Firebase Security Rules**: Update your Firebase security rules when adding new data structures to ensure proper access control.
+</Warning>

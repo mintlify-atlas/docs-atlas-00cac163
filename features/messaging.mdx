@@ -1,0 +1,623 @@
+---
+title: "In-App Messaging"
+description: "Real-time chat system for communication between buyers and drivers using Firebase Firestore"
+---
+
+## Overview
+
+Trackmart includes a built-in messaging system that enables real-time communication between buyers and drivers. Built on Firebase Firestore, the chat system supports text messages, images, and stickers for enhanced communication during the delivery process.
+
+## Chat Architecture
+
+The messaging system uses Firestore for real-time synchronization:
+
+<CardGroup cols={3}>
+  <Card title="Firestore" icon="database">
+    Cloud-based real-time message storage and sync
+  </Card>
+  <Card title="Firebase Storage" icon="cloud">
+    Image upload and hosting for shared media
+  </Card>
+  <Card title="Cached Network Images" icon="image">
+    Efficient image loading with caching
+  </Card>
+</CardGroup>
+
+## Message Types
+
+The chat system supports three message types:
+
+<Tabs>
+  <Tab title="Text Messages (Type 0)">
+    Standard text communication
+    ```dart
+    void onSendMessage(String content, int type) {
+      // type: 0 = text, 1 = image, 2 = sticker
+      if (content.trim() != '') {
+        textEditingController.clear();
+        
+        var documentReference = firestore
+            .collection('messages')
+            .document(groupChatId)
+            .collection(groupChatId)
+            .document(DateTime.now().millisecondsSinceEpoch.toString());
+        
+        firestore.runTransaction((transaction) async {
+          await transaction.set(
+            documentReference,
+            {
+              'idFrom': id,
+              'idTo': peerId,
+              'timestamp': DateTime.now().millisecondsSinceEpoch.toString(),
+              'content': content,
+              'type': type
+            },
+          );
+        });
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Images (Type 1)">
+    Share photos from gallery
+    ```dart
+    Future getImage() async {
+      imageFile = await ImagePicker.pickImage(source: ImageSource.gallery);
+      
+      if (imageFile != null) {
+        setState(() {
+          isLoading = true;
+        });
+        uploadFile();
+      }
+    }
+    
+    Future uploadFile() async {
+      String fileName = DateTime.now().millisecondsSinceEpoch.toString();
+      StorageReference reference = FirebaseStorage.instance.ref().child(fileName);
+      StorageUploadTask uploadTask = reference.putFile(imageFile);
+      StorageTaskSnapshot storageTaskSnapshot = await uploadTask.onComplete;
+      storageTaskSnapshot.ref.getDownloadURL().then((downloadUrl) {
+        imageUrl = downloadUrl;
+        setState(() {
+          isLoading = false;
+          onSendMessage(imageUrl, 1);
+        });
+      });
+    }
+    ```
+  </Tab>
+  <Tab title="Stickers (Type 2)">
+    Predefined emoji/sticker reactions
+    ```dart
+    FlatButton(
+      onPressed: () => onSendMessage('mimi1', 2),
+      child: new Image.asset(
+        'assets/images/mimi1.gif',
+        width: 50.0,
+        height: 50.0,
+        fit: BoxFit.cover,
+      ),
+    )
+    ```
+  </Tab>
+</Tabs>
+
+## Chat ID Generation
+
+Each conversation has a unique group chat ID:
+
+```dart
+readLocal() async {
+  prefs = await SharedPreferences.getInstance();
+  id = prefs.getString('id') ?? '';
+  if (id.hashCode <= peerId.hashCode) {
+    groupChatId = '$id-$peerId';
+  } else {
+    groupChatId = '$peerId-$id';
+  }
+  
+  firestore
+      .collection('buyers')
+      .document(id)
+      .updateData({'chattingWith': peerId});
+  
+  setState(() {});
+}
+```
+
+<Note>
+The group chat ID is generated consistently regardless of which user initiates the chat by comparing hash codes.
+</Note>
+
+## Message Display
+
+Messages are displayed in a ListView with different layouts for sent vs received:
+
+### Sent Messages (Right-aligned)
+
+```dart
+if (document['idFrom'] == id) {
+  return Row(
+    children: <Widget>[
+      document['type'] == 0
+          ? Container(
+              child: Text(
+                document['content'],
+                style: TextStyle(color: primaryColor),
+              ),
+              padding: EdgeInsets.fromLTRB(15.0, 10.0, 15.0, 10.0),
+              width: 200.0,
+              decoration: BoxDecoration(
+                  color: greyColor2,
+                  borderRadius: BorderRadius.circular(8.0)),
+              margin: EdgeInsets.only(
+                  bottom: isLastMessageRight(index) ? 20.0 : 10.0,
+                  right: 10.0),
+            )
+          : // Image or sticker handling...
+    ],
+    mainAxisAlignment: MainAxisAlignment.end,
+  );
+}
+```
+
+### Received Messages (Left-aligned)
+
+```dart
+else {
+  return Container(
+    child: Column(
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            isLastMessageLeft(index)
+                ? peerAvatar == null
+                    ? CircleAvatar(
+                        child: Text(peerName[0]),
+                        radius: 17.5,
+                      )
+                    : Material(
+                        child: CachedNetworkImage(
+                          imageUrl: peerAvatar,
+                          width: 35.0,
+                          height: 35.0,
+                          fit: BoxFit.cover,
+                        ),
+                        borderRadius: BorderRadius.all(
+                          Radius.circular(18.0),
+                        ),
+                        clipBehavior: Clip.hardEdge,
+                      )
+                : Container(width: 35.0),
+            document['type'] == 0
+                ? Container(
+                    child: Text(
+                      document['content'],
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    padding: EdgeInsets.fromLTRB(15.0, 10.0, 15.0, 10.0),
+                    width: 200.0,
+                    decoration: BoxDecoration(
+                        color: primaryColor,
+                        borderRadius: BorderRadius.circular(8.0)),
+                    margin: EdgeInsets.only(left: 10.0),
+                  )
+                : // Image or sticker handling...
+          ],
+        ),
+        isLastMessageLeft(index)
+            ? Container(
+                child: Text(
+                  DateFormat('dd MMM kk:mm').format(
+                      DateTime.fromMillisecondsSinceEpoch(
+                          int.parse(document['timestamp']))),
+                  style: TextStyle(
+                      color: greyColor,
+                      fontSize: 12.0,
+                      fontStyle: FontStyle.italic),
+                ),
+                margin: EdgeInsets.only(left: 50.0, top: 5.0, bottom: 5.0),
+              )
+            : Container()
+      ],
+      crossAxisAlignment: CrossAxisAlignment.start,
+    ),
+    margin: EdgeInsets.only(bottom: 10.0),
+  );
+}
+```
+
+<Info>
+Avatars and timestamps are only shown for the last message in a consecutive series from the same sender to keep the UI clean.
+</Info>
+
+## Real-Time Message Stream
+
+```dart
+Widget buildListMessage() {
+  return Flexible(
+    child: groupChatId == ''
+        ? Center(
+            child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(themeColor)))
+        : StreamBuilder(
+            stream: firestore
+                .collection('messages')
+                .document(groupChatId)
+                .collection(groupChatId)
+                .orderBy('timestamp', descending: true)
+                .limit(20)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return Center(
+                    child: CircularProgressIndicator(
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(themeColor)));
+              } else {
+                listMessage = snapshot.data.documents;
+                return ListView.builder(
+                  padding: EdgeInsets.all(10.0),
+                  itemBuilder: (context, index) =>
+                      buildItem(index, snapshot.data.documents[index]),
+                  itemCount: snapshot.data.documents.length,
+                  reverse: true,
+                  controller: listScrollController,
+                );
+              }
+            },
+          ),
+  );
+}
+```
+
+<Accordion title="Stream Configuration">
+  - **orderBy('timestamp', descending: true)**: Latest messages first
+  - **limit(20)**: Load 20 most recent messages initially
+  - **reverse: true**: Display with oldest at top, newest at bottom
+  - **Auto-scroll**: Automatically scrolls to newest message on send
+</Accordion>
+
+## Chat Input Interface
+
+The input area includes multiple interaction options:
+
+```dart
+Widget buildInput() {
+  return Container(
+    child: Row(
+      children: <Widget>[
+        // Button send image
+        Material(
+          child: new Container(
+            margin: new EdgeInsets.symmetric(horizontal: 1.0),
+            child: new IconButton(
+              icon: new Icon(Icons.image),
+              onPressed: getImage,
+              color: primaryColor,
+            ),
+          ),
+          color: Colors.white,
+        ),
+        Material(
+          child: new Container(
+            margin: new EdgeInsets.symmetric(horizontal: 1.0),
+            child: new IconButton(
+              icon: new Icon(Icons.face),
+              onPressed: getSticker,
+              color: primaryColor,
+            ),
+          ),
+          color: Colors.white,
+        ),
+        
+        // Edit text
+        Flexible(
+          child: Container(
+            child: TextField(
+              style: TextStyle(color: primaryColor, fontSize: 15.0),
+              controller: textEditingController,
+              decoration: InputDecoration.collapsed(
+                hintText: 'Type your message...',
+                hintStyle: TextStyle(color: greyColor),
+              ),
+              focusNode: focusNode,
+            ),
+          ),
+        ),
+        
+        // Button send message
+        Material(
+          child: new Container(
+            margin: new EdgeInsets.symmetric(horizontal: 8.0),
+            child: new IconButton(
+              icon: new Icon(Icons.send),
+              onPressed: () => onSendMessage(textEditingController.text, 0),
+              color: primaryColor,
+            ),
+          ),
+          color: Colors.white,
+        ),
+      ],
+    ),
+    width: double.infinity,
+    height: 50.0,
+    decoration: new BoxDecoration(
+        border:
+            new Border(top: new BorderSide(color: greyColor2, width: 0.5)),
+        color: Colors.white),
+  );
+}
+```
+
+<CardGroup cols={3}>
+  <Card title="Image Button" icon="image">
+    Opens gallery picker
+  </Card>
+  <Card title="Sticker Button" icon="face-smile">
+    Toggles sticker panel
+  </Card>
+  <Card title="Send Button" icon="paper-plane">
+    Submits text message
+  </Card>
+</CardGroup>
+
+## Sticker Panel
+
+A toggleable panel displays available stickers:
+
+```dart
+Widget buildSticker() {
+  return Container(
+    child: Column(
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            FlatButton(
+              onPressed: () => onSendMessage('mimi1', 2),
+              child: new Image.asset(
+                'assets/images/mimi1.gif',
+                width: 50.0,
+                height: 50.0,
+                fit: BoxFit.cover,
+              ),
+            ),
+            // More stickers...
+          ],
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        ),
+        // Additional rows...
+      ],
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    ),
+    decoration: new BoxDecoration(
+        border:
+            new Border(top: new BorderSide(color: greyColor2, width: 0.5)),
+        color: Colors.white),
+    padding: EdgeInsets.all(5.0),
+    height: 180.0,
+  );
+}
+```
+
+<Tip>
+The sticker panel automatically hides when the keyboard appears to maximize screen space.
+</Tip>
+
+## Focus Management
+
+```dart
+void onFocusChange() {
+  if (focusNode.hasFocus) {
+    // Hide sticker when keyboard appear
+    setState(() {
+      isShowSticker = false;
+    });
+  }
+}
+
+void getSticker() {
+  // Hide keyboard when sticker appear
+  focusNode.unfocus();
+  setState(() {
+    isShowSticker = !isShowSticker;
+  });
+}
+```
+
+## Chat Status Updates
+
+The app tracks who the user is currently chatting with:
+
+```dart
+firestore
+    .collection('buyers')
+    .document(id)
+    .updateData({'chattingWith': peerId});
+```
+
+```dart
+Future<bool> onBackPress() {
+  if (isShowSticker) {
+    setState(() {
+      isShowSticker = false;
+    });
+  } else {
+    firestore
+        .collection('buyers')
+        .document(id)
+        .updateData({'chattingWith': null});
+    Navigator.pop(context);
+  }
+  
+  return Future.value(false);
+}
+```
+
+<Note>
+This status can be used to show online indicators, typing indicators, or to route notifications appropriately.
+</Note>
+
+## Driver Contact List
+
+Buyers can access chats from the contact list:
+
+```dart
+Widget buildItem(BuildContext context, DocumentSnapshot document) {
+  return document['displayName']
+          .toLowerCase()
+          .contains(_searchText.toLowerCase())
+      ? Container(
+          child: FlatButton(
+            child: Row(
+              children: <Widget>[
+                Material(
+                  child: document['photoUrl'] != null
+                      ? CachedNetworkImage(
+                          imageUrl: document['photoUrl'],
+                          width: 50.0,
+                          height: 50.0,
+                          fit: BoxFit.cover,
+                        )
+                      : Icon(
+                          Icons.account_circle,
+                          size: 50.0,
+                        ),
+                  borderRadius: BorderRadius.all(Radius.circular(25.0)),
+                  clipBehavior: Clip.hardEdge,
+                ),
+                Flexible(
+                  child: Container(
+                    child: Column(
+                      children: <Widget>[
+                        Container(
+                          child: Text(
+                            '${document['displayName']}',
+                            style: TextStyle(
+                                color: Theme.of(context).primaryColor),
+                          ),
+                          alignment: Alignment.centerLeft,
+                          margin: EdgeInsets.fromLTRB(10.0, 0.0, 0.0, 5.0),
+                        ),
+                      ],
+                    ),
+                    margin: EdgeInsets.only(left: 5.0),
+                  ),
+                ),
+              ],
+            ),
+            onPressed: () {
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => Chat(
+                            peerName: document['displayName'],
+                            store: firestore,
+                            peerId: document.documentID,
+                            peerAvatar: document['photoUrl'],
+                          )));
+            },
+          ),
+        )
+      : Container();
+}
+```
+
+## Image Handling
+
+Images are displayed with loading states and error handling:
+
+```dart
+CachedNetworkImage(
+  placeholder: (context, url) => Container(
+    child: CircularProgressIndicator(
+      valueColor:
+          AlwaysStoppedAnimation<Color>(themeColor),
+    ),
+    width: 200.0,
+    height: 200.0,
+    padding: EdgeInsets.all(70.0),
+    decoration: BoxDecoration(
+      color: greyColor2,
+      borderRadius: BorderRadius.all(
+        Radius.circular(8.0),
+      ),
+    ),
+  ),
+  errorWidget: (context, url, error) => Material(
+    child: Image.asset(
+      'assets/images/img_not_available.jpeg',
+      width: 200.0,
+      height: 200.0,
+      fit: BoxFit.cover,
+    ),
+  ),
+  imageUrl: document['content'],
+  width: 200.0,
+  height: 200.0,
+  fit: BoxFit.cover,
+)
+```
+
+<Warning>
+Ensure Firebase Storage security rules allow authenticated users to upload images to prevent unauthorized access.
+</Warning>
+
+## Message Validation
+
+```dart
+void onSendMessage(String content, int type) {
+  if (content.trim() != '') {
+    textEditingController.clear();
+    // Send message...
+    listScrollController.animateTo(0.0,
+        duration: Duration(milliseconds: 300), curve: Curves.easeOut);
+  } else {
+    Fluttertoast.showToast(msg: 'Nothing to send');
+  }
+}
+```
+
+## Performance Optimizations
+
+<Steps>
+  <Step title="Message Limit">
+    Load only 20 most recent messages initially to reduce data transfer
+  </Step>
+  <Step title="Image Caching">
+    Use CachedNetworkImage to cache downloaded images locally
+  </Step>
+  <Step title="Lazy Loading">
+    ListView.builder creates widgets on-demand as user scrolls
+  </Step>
+  <Step title="Firestore Indexes">
+    Ensure composite index on timestamp for efficient queries
+  </Step>
+</Steps>
+
+## Navigation
+
+Chats are accessible from the Chats tab:
+
+```dart
+TabBar(
+  controller: _tabController,
+  tabs: [
+    Tab(text: ('Chats')),      // Chat list
+    Tab(text: ('Request')),
+    Tab(text: ('Orders')),
+  ],
+)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Order Management" icon="cart-shopping" href="/features/ordering">
+    Create and manage product orders
+  </Card>
+  <Card title="Delivery Tracking" icon="location-dot" href="/features/tracking">
+    Track deliveries in real-time
+  </Card>
+</CardGroup>

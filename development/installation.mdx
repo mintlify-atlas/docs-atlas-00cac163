@@ -1,0 +1,235 @@
+---
+title: Installation
+description: Set up your development environment and get Trackmart running on your local machine
+---
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed on your system:
+
+<CardGroup cols={2}>
+  <Card title="Flutter SDK" icon="mobile">
+    Flutter SDK version compatible with Dart 2.2.0 - 3.0.0
+  </Card>
+  <Card title="Git" icon="git-alt">
+    Version control system for cloning the repository
+  </Card>
+  <Card title="IDE" icon="code">
+    Android Studio, VS Code, or IntelliJ IDEA with Flutter plugins
+  </Card>
+  <Card title="Platform Tools" icon="tools">
+    Xcode (for iOS) or Android Studio (for Android)
+  </Card>
+</CardGroup>
+
+## Flutter SDK Setup
+
+<Steps>
+  <Step title="Download Flutter SDK">
+    Download the Flutter SDK for your operating system from the [official Flutter website](https://flutter.dev/docs/get-started/install).
+    
+    <Tabs>
+      <Tab title="macOS">
+        ```bash
+        cd ~/development
+        wget https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/flutter_macos_<version>-stable.zip
+        unzip flutter_macos_<version>-stable.zip
+        ```
+      </Tab>
+      <Tab title="Linux">
+        ```bash
+        cd ~/development
+        wget https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_<version>-stable.tar.xz
+        tar xf flutter_linux_<version>-stable.tar.xz
+        ```
+      </Tab>
+      <Tab title="Windows">
+        Download the Flutter SDK zip file and extract it to a desired location (e.g., `C:\src\flutter`).
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Add Flutter to PATH">
+    Add the Flutter bin directory to your system PATH.
+    
+    <Tabs>
+      <Tab title="macOS/Linux">
+        Add this line to your `.bashrc`, `.zshrc`, or `.bash_profile`:
+        ```bash
+        export PATH="$PATH:`pwd`/flutter/bin"
+        ```
+        Then reload your shell:
+        ```bash
+        source ~/.bashrc  # or source ~/.zshrc
+        ```
+      </Tab>
+      <Tab title="Windows">
+        Add the Flutter bin directory to your PATH environment variable through System Properties.
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Verify Installation">
+    Run the Flutter doctor command to verify your installation:
+    ```bash
+    flutter doctor
+    ```
+    
+    <Info>
+      Flutter doctor checks your environment and displays a report of the status of your Flutter installation. Follow any additional setup instructions it provides.
+    </Info>
+  </Step>
+
+  <Step title="Accept Android Licenses">
+    If you're developing for Android, accept the Android licenses:
+    ```bash
+    flutter doctor --android-licenses
+    ```
+  </Step>
+</Steps>
+
+## Clone the Repository
+
+Clone the Trackmart repository to your local machine:
+
+```bash
+git clone <repository-url>
+cd trackmart
+```
+
+<Note>
+  Replace `<repository-url>` with the actual repository URL provided by your team.
+</Note>
+
+## Install Dependencies
+
+<Steps>
+  <Step title="Get Flutter Packages">
+    Navigate to the project directory and install all dependencies:
+    ```bash
+    flutter pub get
+    ```
+    
+    This command reads the `pubspec.yaml` file and downloads all required packages including:
+    - Firebase packages (auth, database, storage, messaging)
+    - Map packages (flutter_map, geolocator)
+    - UI packages (cached_network_image, smooth_star_rating)
+    - And more...
+  </Step>
+
+  <Step title="Configure Firebase">
+    Set up Firebase for your project:
+    
+    1. Create a new Firebase project in the [Firebase Console](https://console.firebase.google.com/)
+    2. Add Android and iOS apps to your Firebase project
+    3. Download the configuration files:
+       - `google-services.json` for Android (place in `android/app/`)
+       - `GoogleService-Info.plist` for iOS (place in `ios/Runner/`)
+    
+    <Warning>
+      Without proper Firebase configuration, authentication and database features will not work.
+    </Warning>
+  </Step>
+
+  <Step title="Configure Mapbox (Optional)">
+    If you're using Mapbox for mapping features:
+    
+    1. Create a Mapbox account at [mapbox.com](https://www.mapbox.com/)
+    2. Get your access token
+    3. Add the token to your project configuration
+  </Step>
+</Steps>
+
+## Run the Application
+
+<Steps>
+  <Step title="Connect a Device or Emulator">
+    Connect a physical device via USB or start an emulator:
+    
+    <Tabs>
+      <Tab title="Check Devices">
+        ```bash
+        flutter devices
+        ```
+        This lists all connected devices and running emulators.
+      </Tab>
+      <Tab title="Start Android Emulator">
+        ```bash
+        flutter emulators
+        flutter emulators --launch <emulator_id>
+        ```
+      </Tab>
+      <Tab title="Start iOS Simulator">
+        ```bash
+        open -a Simulator
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Run the App">
+    Launch the application:
+    ```bash
+    flutter run
+    ```
+    
+    For specific platforms:
+    <CodeGroup>
+      ```bash Android
+      flutter run -d android
+      ```
+      ```bash iOS
+      flutter run -d ios
+      ```
+      ```bash Release Mode
+      flutter run --release
+      ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Verify the App is Running">
+    Once the app launches, you should see the Trackmart splash screen with the truck icon, followed by the login page.
+    
+    <Tip>
+      Use hot reload (`r` in terminal) during development to see changes instantly without restarting the app.
+    </Tip>
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<Accordion title="Gradle build failed (Android)">
+  1. Check your Java version: `java -version`
+  2. Clean the build: `flutter clean && flutter pub get`
+  3. Rebuild: `cd android && ./gradlew clean && cd .. && flutter run`
+</Accordion>
+
+<Accordion title="Pod install failed (iOS)">
+  1. Update CocoaPods: `sudo gem install cocoapods`
+  2. Install pods: `cd ios && pod install && cd ..`
+  3. Clean and rebuild: `flutter clean && flutter pub get && flutter run`
+</Accordion>
+
+<Accordion title="Firebase connection issues">
+  1. Verify `google-services.json` (Android) is in `android/app/`
+  2. Verify `GoogleService-Info.plist` (iOS) is in `ios/Runner/`
+  3. Check that package name matches Firebase configuration
+  4. Ensure Firebase services are enabled in the console
+</Accordion>
+
+<Accordion title="Permission errors">
+  Location permissions are required for the app to function properly. Check:
+  - `android/app/src/main/AndroidManifest.xml` for Android permissions
+  - `ios/Runner/Info.plist` for iOS permissions
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Project Structure" icon="folder-tree" href="/development/project-structure">
+    Understand the codebase organization
+  </Card>
+  <Card title="Dependencies" icon="box" href="/development/dependencies">
+    Learn about the packages used in the project
+  </Card>
+</CardGroup>

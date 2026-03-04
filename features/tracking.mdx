@@ -1,0 +1,352 @@
+---
+title: "Real-Time Tracking"
+description: "Track deliveries in real-time using Mapbox integration and Firebase location updates"
+---
+
+## Overview
+
+Trackmart's tracking system provides real-time location monitoring for active deliveries. Using Mapbox for map visualization and Firebase Realtime Database for location updates, buyers can see exactly where their driver is and when to expect delivery.
+
+## Tracking Architecture
+
+The tracking system uses a combination of technologies:
+
+<CardGroup cols={3}>
+  <Card title="Mapbox" icon="map">
+    Interactive map rendering with custom styling
+  </Card>
+  <Card title="Firebase Realtime DB" icon="database">
+    Live location updates from drivers
+  </Card>
+  <Card title="Geolocator" icon="location-dot">
+    Device GPS for buyer location
+  </Card>
+</CardGroup>
+
+## Map Implementation
+
+### Basic Map Setup
+
+The map is implemented using Flutter Map with Mapbox tiles:
+
+```dart
+FlutterMap(
+  options: new MapOptions(
+    center: _center ?? new LatLng(widget.dlat, widget.dlong),
+    zoom: 15.0,
+  ),
+  mapController: _mapController,
+  layers: [
+    new TileLayerOptions(
+      urlTemplate: "https://api.tiles.mapbox.com/v4/"
+          "{id}/{z}/{x}/{y}@2x.png?access_token={accessToken}",
+      additionalOptions: {
+        'accessToken': 'YOUR_MAPBOX_TOKEN',
+        'id': 'mapbox.streets',
+      },
+    ),
+    // Additional layers...
+  ],
+)
+```
+
+<Warning>
+Replace `'YOUR_MAPBOX_TOKEN'` with your actual Mapbox access token. Keep tokens secure and use environment variables in production.
+</Warning>
+
+## Real-Time Location Updates
+
+Driver locations are streamed from Firebase:
+
+```dart
+@override
+void initState() {
+  FirebaseDatabase.instance
+      .reference()
+      .child('Drivers')
+      .child(widget.driverId)
+      .onValue
+      .listen((e) {
+        if(mounted) {
+          Map<String, dynamic> map = e.snapshot.value.cast<String, dynamic>();
+          _updateLocation(Position(
+              longitude: map['long'].toDouble(),
+              latitude: map['lat'].toDouble()));
+        }
+  });
+  super.initState();
+}
+```
+
+<Info>
+Location updates are received in real-time as drivers move. The `onValue` listener ensures the map always shows the current position.
+</Info>
+
+### Location Update Handler
+
+```dart
+_updateLocation(Position position) {
+  setState(() {
+    dlat = position.latitude;
+    dlong = position.longitude;
+  });
+  var url =
+      'https://api.mapbox.com/directions/v5/mapbox/driving/${dlong},${dlat};${widget.ulong},${widget.ulat}?access_token=YOUR_TOKEN';
+  http.get(url).then((response) {
+    route = json.decode(response.body)['routes'][0];
+    var k = PolylinePoints().decodePolyline(route['geometry']);
+    setState(() {
+      points = List.generate(k.length, (i) {
+        return LatLng(k[i].latitude, k[i].longitude);
+      });
+      distance = '${(route['distance'] / 1000).toStringAsFixed(2)}km';
+      duration = '${(route['duration'] / 60).toStringAsFixed(0)}min';
+    });
+  });
+}
+```
+
+## Route Visualization
+
+The app draws a polyline showing the route from driver to buyer:
+
+<Steps>
+  <Step title="Fetch Route">
+    Query Mapbox Directions API with driver and buyer coordinates
+  </Step>
+  <Step title="Decode Polyline">
+    Convert encoded polyline geometry to LatLng points
+  </Step>
+  <Step title="Render on Map">
+    Display the route as a colored polyline overlay
+  </Step>
+</Steps>
+
+```dart
+PolylineLayerOptions(polylines: [
+  new Polyline(
+    points: points,
+    strokeWidth: 5.0,
+    color: Theme.of(context).accentColor,
+  )
+])
+```
+
+## Map Markers
+
+Two markers indicate buyer and driver locations:
+
+<Tabs>
+  <Tab title="Buyer Marker">
+    ```dart
+    new Marker(
+      width: 60.0,
+      height: 60.0,
+      point: new LatLng(widget.ulat, widget.ulong),
+      builder: (ctx) => new Container(
+        child: GestureDetector(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('You',
+                    style: TextStyle(backgroundColor: Colors.white)),
+                Icon(
+                  Icons.person_pin_circle,
+                  color: Theme.of(context).accentColor,
+                  size: 30,
+                ),
+              ],
+            ),
+            onTap: () {
+              print('hi');
+            }),
+      ),
+    )
+    ```
+  </Tab>
+  <Tab title="Driver Marker">
+    ```dart
+    new Marker(
+      width: 60.0,
+      height: 60.0,
+      point: new LatLng(dlat, dlong),
+      builder: (ctx) => new Container(
+        child: GestureDetector(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(widget.driver, maxLines: 1,
+                  style: TextStyle(backgroundColor: Colors.white)),
+              Icon(
+                Icons.local_shipping,
+                color: Theme.of(context).accentColor,
+                size: 30,
+              ),
+            ],
+          ),
+        ),
+      ),
+    )
+    ```
+  </Tab>
+</Tabs>
+
+## Distance and ETA
+
+The tracking view displays real-time distance and estimated time of arrival:
+
+```dart
+FlatButton.icon(
+  color: Colors.white,
+  onPressed: _eta,
+  icon: Icon(
+    Icons.access_time,
+    color: Theme.of(context).accentColor,
+  ),
+  label: Text('${distance ?? ''} (${duration ?? ''}'),
+)
+```
+
+### ETA Calculation
+
+```dart
+void _eta() {
+  if(route!=null)
+  showDialog(
+    context: context,
+    builder: (context) {
+      return SimpleDialog(
+        title: Text('ETA'),
+        contentPadding: EdgeInsets.all(12),
+        children: <Widget>[
+          Text(
+            '${DateFormat('h:mm a').format(DateTime.now().add(Duration(seconds: route['duration'].toInt())))}',
+            style: TextStyle(
+                color: Theme.of(context).accentColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 24),
+          ),
+        ],
+      );
+    },
+  );
+}
+```
+
+<Tip>
+The ETA dialog shows the expected arrival time in 12-hour format (e.g., "2:45 PM") by adding the route duration to the current time.
+</Tip>
+
+## Finding Nearest Drivers
+
+Buyers can view all available drivers on a map:
+
+```dart
+FirebaseDatabase.instance
+    .reference()
+    .child('Drivers')
+    .orderByChild('status')
+    .equalTo(true)
+    .onValue
+    .listen((e) {
+  Map<String, dynamic> map = e.snapshot.value?.cast<String, dynamic>();
+  if (map != null) {
+    map.forEach((key, values) {
+      var url =
+          'https://api.mapbox.com/directions/v5/mapbox/driving/${values['long']},${values['lat']};${widget.ulong},${widget.ulat}?access_token=YOUR_TOKEN';
+      http.get(url).then((response) {
+        var route = json.decode(response.body)['routes'][0];
+        if(mounted)setState(() {
+          distances.add('${(route['distance'] / 1000).toStringAsFixed(2)}km');
+          durations.add((route['duration'] / 60).toInt());
+          // Add driver to map...
+        });
+      });
+    });
+  }
+});
+```
+
+<CardGroup cols={2}>
+  <Card title="Driver Cards" icon="truck">
+    Each driver marker shows name, distance, and ETA when tapped
+  </Card>
+  <Card title="Quick Selection" icon="mouse-pointer">
+    Tap a driver marker to view details and confirm selection
+  </Card>
+</CardGroup>
+
+## Map Controls
+
+The tracking interface includes navigation controls:
+
+<Accordion title="Control Buttons">
+  - **My Location** (bottom-left): Centers map on buyer's location
+  - **Driver Location** (bottom-right): Centers map on driver's location  
+  - **Help** (app bar): Shows ETA dialog
+</Accordion>
+
+```dart
+IconButton(
+    iconSize: 40,
+    icon: Icon(Icons.my_location,
+        color: Theme.of(context).accentColor),
+    onPressed: () {
+      _mapController.move(
+          LatLng(widget.ulat, widget.ulong), _mapController.zoom);
+    }),
+```
+
+## Buyer Location Tracking
+
+The app also tracks the buyer's location:
+
+```dart
+_updateLocation(Position position) {
+  if (mounted)
+    setState(() {
+      currentLat = position.latitude;
+      currentLong = position.longitude;
+    });
+  databaseReference
+      .child('buyers')
+      .child(currentUserId)
+      .update({
+        'lat': position.latitude,
+        'long': position.longitude,
+      })
+      .then((v) {})
+      .catchError((e) {
+        print(e.toString());
+      });
+}
+```
+
+<Note>
+Buyer location updates are pushed to Firebase so drivers can see the delivery destination in real-time.
+</Note>
+
+## Performance Considerations
+
+<Steps>
+  <Step title="Location Filtering">
+    Uses `distanceFilter: 10` to only update when position changes by 10+ meters
+  </Step>
+  <Step title="Mounted Checks">
+    Always checks `if (mounted)` before calling `setState()` to prevent memory leaks
+  </Step>
+  <Step title="Stream Disposal">
+    Properly cancels position subscriptions in `dispose()` method
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Delivery Management" icon="box" href="/features/delivery">
+    Learn about delivery workflows and status updates
+  </Card>
+  <Card title="In-App Messaging" icon="comments" href="/features/messaging">
+    Chat with drivers during delivery
+  </Card>
+</CardGroup>

@@ -1,0 +1,741 @@
+---
+title: Push Notifications
+description: Configure Firebase Cloud Messaging and local notifications for real-time order updates in Trackmart
+---
+
+## Overview
+
+Trackmart uses Firebase Cloud Messaging (FCM) combined with Flutter Local Notifications to keep users informed about order status, driver location updates, and delivery notifications in real-time.
+
+<Note>
+Push notifications require Firebase setup to be complete. Ensure you've followed the [Firebase Setup guide](./firebase-setup) before proceeding.
+</Note>
+
+## Why Push Notifications?
+
+Notifications are critical for Trackmart's user experience:
+
+<CardGroup cols={2}>
+  <Card title="Order Updates" icon="bell">
+    Notify buyers when drivers accept or complete orders
+  </Card>
+  <Card title="Driver Alerts" icon="truck">
+    Alert drivers about new delivery requests
+  </Card>
+  <Card title="Real-time Updates" icon="clock">
+    Keep users informed of delivery status changes
+  </Card>
+  <Card title="Chat Messages" icon="message">
+    Notify users of new messages from drivers or buyers
+  </Card>
+</CardGroup>
+
+## Dependencies
+
+Trackmart uses two packages for notifications:
+
+```yaml pubspec.yaml
+dependencies:
+  firebase_messaging: 5.1.2
+  flutter_local_notifications: 0.8.0
+```
+
+<Info>
+- **firebase_messaging**: Handles push notifications from Firebase Cloud Messaging
+- **flutter_local_notifications**: Displays notifications when app is in foreground
+</Info>
+
+## Step 1: Enable Firebase Cloud Messaging
+
+<Steps>
+  <Step title="Open Firebase Console">
+    Navigate to your project in the [Firebase Console](https://console.firebase.google.com/).
+  </Step>
+  
+  <Step title="Navigate to Cloud Messaging">
+    Go to **Project Settings** > **Cloud Messaging** tab.
+  </Step>
+  
+  <Step title="Note your Server Key">
+    Copy the **Server key** - you'll need this for sending notifications from your backend.
+  </Step>
+  
+  <Step title="Enable Cloud Messaging API">
+    Ensure the Cloud Messaging API is enabled in the Google Cloud Console.
+  </Step>
+</Steps>
+
+## Step 2: Configure Android
+
+<Steps>
+  <Step title="Update AndroidManifest.xml">
+    Add to `android/app/src/main/AndroidManifest.xml`:
+    
+    ```xml android/app/src/main/AndroidManifest.xml
+    <manifest>
+      <application>
+        <!-- FCM notification icon -->
+        <meta-data
+          android:name="com.google.firebase.messaging.default_notification_icon"
+          android:resource="@drawable/notification_icon" />
+        
+        <!-- FCM notification color -->
+        <meta-data
+          android:name="com.google.firebase.messaging.default_notification_color"
+          android:resource="@color/colorAccent" />
+        
+        <!-- FCM notification channel -->
+        <meta-data
+          android:name="com.google.firebase.messaging.default_notification_channel_id"
+          android:value="trackmart_channel" />
+      </application>
+      
+      <!-- Notification permissions -->
+      <uses-permission android:name="android.permission.INTERNET" />
+      <uses-permission android:name="android.permission.VIBRATE" />
+      <uses-permission android:name="android.permission.WAKE_LOCK" />
+    </manifest>
+    ```
+  </Step>
+  
+  <Step title="Create notification icon">
+    Add a notification icon to `android/app/src/main/res/drawable/`:
+    
+    - Create `notification_icon.png` (white icon on transparent background)
+    - Recommended size: 24x24dp for different screen densities
+  </Step>
+  
+  <Step title="Define notification color">
+    Add to `android/app/src/main/res/values/colors.xml`:
+    
+    ```xml
+    <?xml version="1.0" encoding="utf-8"?>
+    <resources>
+      <color name="colorAccent">#005B9A</color>
+    </resources>
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+Android 8.0 (API 26+) requires notification channels. Trackmart uses `trackmart_channel` as the default channel ID.
+</Warning>
+
+## Step 3: Configure iOS
+
+<Steps>
+  <Step title="Enable Push Notifications capability">
+    Open `ios/Runner.xcworkspace` in Xcode:
+    
+    1. Select **Runner** project
+    2. Go to **Signing & Capabilities** tab
+    3. Click **+ Capability**
+    4. Add **Push Notifications**
+  </Step>
+  
+  <Step title="Enable Background Modes">
+    In the same **Signing & Capabilities** tab:
+    
+    1. Add **Background Modes** capability
+    2. Enable:
+       - ☑️ Remote notifications
+       - ☑️ Background fetch
+  </Step>
+  
+  <Step title="Configure APNs Authentication">
+    In the Firebase Console:
+    
+    1. Go to **Project Settings** > **Cloud Messaging**
+    2. Under **iOS app configuration**, upload your APNs authentication key or certificate
+    3. Follow the instructions to generate an APNs key from Apple Developer Portal
+  </Step>
+  
+  <Step title="Update Info.plist">
+    Add to `ios/Runner/Info.plist` if not already present:
+    
+    ```xml
+    <key>UIBackgroundModes</key>
+    <array>
+      <string>fetch</string>
+      <string>remote-notification</string>
+    </array>
+    ```
+  </Step>
+</Steps>
+
+## Step 4: Initialize Firebase Messaging
+
+Implement Firebase Messaging in your app's main initialization:
+
+```dart lib/main.dart
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+class MyApp extends StatefulWidget {
+  @override
+  _MyAppState createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging();
+  final FlutterLocalNotificationsPlugin _localNotifications = 
+      FlutterLocalNotificationsPlugin();
+  
+  @override
+  void initState() {
+    super.initState();
+    _configureNotifications();
+  }
+  
+  void _configureNotifications() async {
+    // Initialize local notifications
+    const androidSettings = AndroidInitializationSettings('@drawable/notification_icon');
+    const iosSettings = IOSInitializationSettings(
+      requestSoundPermission: true,
+      requestBadgePermission: true,
+      requestAlertPermission: true,
+    );
+    
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+    
+    await _localNotifications.initialize(
+      initSettings,
+      onSelectNotification: _onNotificationTapped,
+    );
+    
+    // Configure Firebase Messaging
+    _firebaseMessaging.configure(
+      onMessage: (Map<String, dynamic> message) async {
+        print("onMessage: $message");
+        _showLocalNotification(message);
+      },
+      onLaunch: (Map<String, dynamic> message) async {
+        print("onLaunch: $message");
+        _handleNotificationTap(message);
+      },
+      onResume: (Map<String, dynamic> message) async {
+        print("onResume: $message");
+        _handleNotificationTap(message);
+      },
+    );
+    
+    // Request iOS permissions
+    _firebaseMessaging.requestNotificationPermissions(
+      const IosNotificationSettings(
+        sound: true,
+        badge: true,
+        alert: true,
+      ),
+    );
+    
+    // Get FCM token
+    String token = await _firebaseMessaging.getToken();
+    print("FCM Token: $token");
+    
+    // Save token to Firebase for this user
+    _saveTokenToDatabase(token);
+  }
+}
+```
+
+## Step 5: Handle Notifications
+
+Implement notification handling based on app state:
+
+<Tabs>
+  <Tab title="Foreground">
+    When app is open and active:
+    
+    ```dart
+    void _showLocalNotification(Map<String, dynamic> message) async {
+      // Extract notification data
+      final notification = message['notification'];
+      final data = message['data'];
+      
+      // Android notification details
+      const androidDetails = AndroidNotificationDetails(
+        'trackmart_channel',
+        'Trackmart Notifications',
+        'Notifications for order updates and messages',
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: '@drawable/notification_icon',
+      );
+      
+      // iOS notification details
+      const iosDetails = IOSNotificationDetails();
+      
+      // Combined platform details
+      const platformDetails = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+      
+      // Show notification
+      await _localNotifications.show(
+        notification.hashCode,
+        notification['title'],
+        notification['body'],
+        platformDetails,
+        payload: json.encode(data),
+      );
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Background">
+    When app is in background:
+    
+    ```dart
+    // Background message handler (must be top-level function)
+    Future<dynamic> backgroundMessageHandler(Map<String, dynamic> message) async {
+      print("Background message: $message");
+      
+      // Process notification data
+      if (message.containsKey('data')) {
+        final data = message['data'];
+        // Handle background data processing
+      }
+      
+      return Future<void>.value();
+    }
+    
+    // Register handler in main.dart
+    void main() {
+      FirebaseMessaging.onBackgroundMessage(backgroundMessageHandler);
+      runApp(MyApp());
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Terminated">
+    When app was closed:
+    
+    ```dart
+    void _handleNotificationTap(Map<String, dynamic> message) {
+      final data = message['data'];
+      
+      // Navigate based on notification type
+      if (data['type'] == 'order_update') {
+        Navigator.pushNamed(
+          context,
+          '/order_details',
+          arguments: {'orderId': data['orderId']},
+        );
+      } else if (data['type'] == 'new_message') {
+        Navigator.pushNamed(
+          context,
+          '/chat',
+          arguments: {'chatId': data['chatId']},
+        );
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Step 6: Save FCM Token
+
+Store the device FCM token in Firebase for targeting notifications:
+
+```dart
+void _saveTokenToDatabase(String token) async {
+  // Get current user ID
+  final userId = await SharedPreferences.getInstance()
+      .then((prefs) => prefs.getString('id'));
+  
+  if (userId != null) {
+    // Save to Realtime Database
+    await FirebaseDatabase.instance
+        .reference()
+        .child('users')
+        .child(userId)
+        .update({
+      'fcmToken': token,
+      'platform': Platform.isIOS ? 'ios' : 'android',
+      'tokenUpdatedAt': ServerValue.timestamp,
+    });
+    
+    // Also save to Firestore for querying
+    await Firestore.instance
+        .collection('users')
+        .document(userId)
+        .updateData({
+      'fcmToken': token,
+      'platform': Platform.isIOS ? 'ios' : 'android',
+    });
+  }
+}
+```
+
+<Info>
+Tokens should be refreshed when they change. Listen to `onTokenRefresh` to update the database.
+</Info>
+
+## Step 7: Send Notifications
+
+Notifications can be sent from:
+
+<Tabs>
+  <Tab title="Firebase Console">
+    Manual notifications for testing:
+    
+    <Steps>
+      <Step title="Open Cloud Messaging">
+        Go to Firebase Console > **Cloud Messaging** > **Send your first message**
+      </Step>
+      
+      <Step title="Compose notification">
+        - **Notification title**: "Order Accepted"
+        - **Notification text**: "Your driver is on the way!"
+      </Step>
+      
+      <Step title="Target users">
+        Choose:
+        - **User segment**: All users
+        - **Topic**: Specific topic subscribers
+        - **Single device**: Test with your FCM token
+      </Step>
+      
+      <Step title="Send notification">
+        Click **Review** and **Publish** to send.
+      </Step>
+    </Steps>
+  </Tab>
+  
+  <Tab title="Backend Server">
+    Programmatic notifications using FCM HTTP API:
+    
+    ```javascript server.js (Node.js example)
+    const admin = require('firebase-admin');
+    
+    // Initialize Firebase Admin SDK
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+    
+    // Send notification to specific user
+    async function sendOrderNotification(userId, orderId, driverName) {
+      // Get user's FCM token from database
+      const userDoc = await admin.firestore()
+        .collection('users')
+        .doc(userId)
+        .get();
+      
+      const fcmToken = userDoc.data().fcmToken;
+      
+      // Prepare notification
+      const message = {
+        notification: {
+          title: 'Order Accepted',
+          body: `${driverName} has accepted your order`,
+        },
+        data: {
+          type: 'order_update',
+          orderId: orderId,
+          status: 'accepted',
+        },
+        token: fcmToken,
+      };
+      
+      // Send notification
+      const response = await admin.messaging().send(message);
+      console.log('Successfully sent:', response);
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Cloud Functions">
+    Automatic notifications using Firebase Cloud Functions:
+    
+    ```javascript functions/index.js
+    const functions = require('firebase-functions');
+    const admin = require('firebase-admin');
+    admin.initializeApp();
+    
+    // Trigger when order status changes
+    exports.sendOrderNotification = functions.database
+      .ref('/buyers/{buyerId}/requests/{orderId}')
+      .onUpdate(async (change, context) => {
+        const before = change.before.val();
+        const after = change.after.val();
+        
+        // Only send if status changed
+        if (before.status !== after.status) {
+          const buyerId = context.params.buyerId;
+          
+          // Get buyer's FCM token
+          const userSnapshot = await admin.database()
+            .ref(`users/${buyerId}/fcmToken`)
+            .once('value');
+          
+          const fcmToken = userSnapshot.val();
+          
+          if (fcmToken) {
+            const message = {
+              notification: {
+                title: 'Order Update',
+                body: `Your order is now ${after.status}`,
+              },
+              data: {
+                type: 'order_update',
+                orderId: context.params.orderId,
+                status: after.status,
+              },
+              token: fcmToken,
+            };
+            
+            await admin.messaging().send(message);
+          }
+        }
+      });
+    ```
+  </Tab>
+</Tabs>
+
+## Notification Types
+
+Trackmart supports various notification types:
+
+<AccordionGroup>
+  <Accordion title="Order Notifications">
+    ```dart
+    // Order accepted
+    {
+      "notification": {
+        "title": "Order Accepted",
+        "body": "Your driver is on the way!"
+      },
+      "data": {
+        "type": "order_update",
+        "orderId": "O:1234567890",
+        "status": "accepted",
+        "driverId": "driver123"
+      }
+    }
+    
+    // Order in transit
+    {
+      "notification": {
+        "title": "Order In Transit",
+        "body": "Your order is being delivered"
+      },
+      "data": {
+        "type": "order_update",
+        "orderId": "O:1234567890",
+        "status": "in_transit"
+      }
+    }
+    
+    // Order delivered
+    {
+      "notification": {
+        "title": "Order Delivered",
+        "body": "Your order has been delivered successfully"
+      },
+      "data": {
+        "type": "order_update",
+        "orderId": "O:1234567890",
+        "status": "delivered"
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Driver Notifications">
+    ```dart
+    // New delivery request
+    {
+      "notification": {
+        "title": "New Delivery Request",
+        "body": "You have a new delivery request nearby"
+      },
+      "data": {
+        "type": "new_request",
+        "orderId": "O:1234567890",
+        "buyerId": "buyer123",
+        "distance": "2.5km"
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Chat Notifications">
+    ```dart
+    // New message
+    {
+      "notification": {
+        "title": "Message from John",
+        "body": "When will you arrive?"
+      },
+      "data": {
+        "type": "new_message",
+        "chatId": "chat123",
+        "senderId": "user456",
+        "senderName": "John"
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Testing Notifications
+
+<Steps>
+  <Step title="Get FCM token">
+    Run the app and copy the FCM token printed in the console:
+    ```
+    FCM Token: fL8X9...
+    ```
+  </Step>
+  
+  <Step title="Send test notification">
+    Use the Firebase Console or a tool like Postman:
+    
+    ```bash cURL
+    curl -X POST https://fcm.googleapis.com/fcm/send \
+      -H "Authorization: key=YOUR_SERVER_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "to": "YOUR_FCM_TOKEN",
+        "notification": {
+          "title": "Test Notification",
+          "body": "This is a test from Trackmart"
+        },
+        "data": {
+          "type": "test"
+        }
+      }'
+    ```
+  </Step>
+  
+  <Step title="Verify delivery">
+    Check that:
+    - Notification appears when app is in foreground
+    - System tray shows notification when app is backgrounded
+    - Tapping notification opens the app correctly
+  </Step>
+</Steps>
+
+## Notification Channels (Android 8+)
+
+Create notification channels for better user control:
+
+```dart
+Future<void> createNotificationChannels() async {
+  final android = _localNotifications.resolvePlatformSpecificImplementation<
+      AndroidFlutterLocalNotificationsPlugin>();
+  
+  if (android != null) {
+    // Orders channel
+    await android.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'trackmart_orders',
+        'Order Updates',
+        'Notifications about your order status',
+        importance: Importance.high,
+      ),
+    );
+    
+    // Messages channel
+    await android.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'trackmart_messages',
+        'Messages',
+        'New messages from drivers and buyers',
+        importance: Importance.high,
+      ),
+    );
+    
+    // General channel
+    await android.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'trackmart_general',
+        'General',
+        'General app notifications',
+        importance: Importance.defaultImportance,
+      ),
+    );
+  }
+}
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Notifications not received">
+    - Verify FCM is enabled in Firebase Console
+    - Check that the app has notification permissions
+    - Ensure FCM token is saved correctly in database
+    - Verify APNs certificate/key is uploaded (iOS)
+    - Check device internet connectivity
+  </Accordion>
+  
+  <Accordion title="iOS notifications not working">
+    - Ensure Push Notifications capability is enabled in Xcode
+    - Verify APNs authentication key is uploaded to Firebase
+    - Check that `requestNotificationPermissions()` is called
+    - Test on a physical device (simulator has limited support)
+    - Verify bundle ID matches in Firebase and Xcode
+  </Accordion>
+  
+  <Accordion title="Foreground notifications not showing">
+    - Ensure `flutter_local_notifications` is configured
+    - Check that `_showLocalNotification()` is called in `onMessage`
+    - Verify notification channel is created (Android)
+    - Check notification permissions in app settings
+  </Accordion>
+  
+  <Accordion title="Notification tap not working">
+    - Ensure `onSelectNotification` callback is set
+    - Verify payload data is properly JSON encoded
+    - Check navigation routes are registered
+    - Test with different app states (foreground, background, terminated)
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Token Management" icon="key">
+    - Refresh tokens when they change
+    - Store tokens with user profiles
+    - Handle token errors gracefully
+    - Clean up tokens on logout
+  </Card>
+  
+  <Card title="User Experience" icon="face-smile">
+    - Keep notification text concise
+    - Use meaningful titles
+    - Include action buttons when relevant
+    - Don't spam users with notifications
+  </Card>
+  
+  <Card title="Data Payload" icon="database">
+    - Include navigation data in payload
+    - Keep data payload small (under 4KB)
+    - Use data-only messages for background processing
+    - Include timestamps for time-sensitive data
+  </Card>
+  
+  <Card title="Testing" icon="vial">
+    - Test all app states (foreground, background, terminated)
+    - Verify on both iOS and Android
+    - Test notification permissions flow
+    - Monitor delivery rates in Firebase Console
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Firebase Setup" icon="fire" href="./firebase-setup">
+    Review Firebase configuration for notifications
+  </Card>
+  <Card title="Mapbox Integration" icon="map" href="./mapbox-integration">
+    Add location-based notification triggers
+  </Card>
+</CardGroup>

@@ -1,80 +1,491 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start Guide
+description: Get Trackmart up and running on your local machine with authentication and your first order in under 10 minutes
 ---
 
-## Get started in three steps
+## Prerequisites
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
+Before you begin, ensure you have the following installed:
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Flutter SDK" icon="mobile">
+    Flutter SDK 2.2.0 or higher
+  </Card>
+  <Card title="Dart SDK" icon="code">
+    Dart SDK (included with Flutter)
+  </Card>
+  <Card title="Android Studio / Xcode" icon="screwdriver-wrench">
+    For Android or iOS development
+  </Card>
+  <Card title="Git" icon="git-alt">
+    Version control system
+  </Card>
 </CardGroup>
 
+<Info>
+  You'll also need a Firebase project and Mapbox account. We'll set these up in the following steps.
+</Info>
+
+## Installation
+
+<Steps>
+  <Step title="Clone the Repository">
+    Clone the Trackmart source code to your local machine:
+
+    ```bash
+    git clone https://github.com/yourusername/trackmart.git
+    cd trackmart
+    ```
+
+    <Note>
+      Replace `yourusername` with the actual repository owner.
+    </Note>
+  </Step>
+
+  <Step title="Install Dependencies">
+    Install all required Flutter packages:
+
+    ```bash
+    flutter pub get
+    ```
+
+    This will install key dependencies including:
+    - `firebase_auth` - User authentication
+    - `cloud_firestore` - Database operations
+    - `firebase_database` - Real-time data sync
+    - `geolocator` - Location services
+    - `flutter_map` - Map rendering
+    - `dio` - HTTP networking
+  </Step>
+
+  <Step title="Configure Firebase">
+    ### Create Firebase Project
+
+    1. Go to [Firebase Console](https://console.firebase.google.com/)
+    2. Click "Add project" and follow the setup wizard
+    3. Enable the following services:
+       - **Authentication** (Email and Phone)
+       - **Cloud Firestore**
+       - **Realtime Database**
+       - **Cloud Messaging**
+
+    ### Add Firebase to Your App
+
+    <Tabs>
+      <Tab title="Android">
+        1. Download `google-services.json` from Firebase Console
+        2. Place it in `android/app/`
+        3. Verify `android/build.gradle` includes:
+
+        ```gradle android/build.gradle
+        dependencies {
+            classpath 'com.google.gms:google-services:4.3.3'
+        }
+        ```
+
+        4. Verify `android/app/build.gradle` includes:
+
+        ```gradle android/app/build.gradle
+        apply plugin: 'com.google.gms.google-services'
+        ```
+      </Tab>
+
+      <Tab title="iOS">
+        1. Download `GoogleService-Info.plist` from Firebase Console
+        2. Place it in `ios/Runner/`
+        3. Open `ios/Runner.xcworkspace` in Xcode
+        4. Right-click on Runner and select "Add Files to Runner"
+        5. Select `GoogleService-Info.plist`
+      </Tab>
+    </Tabs>
+
+    ### Configure Firestore Security Rules
+
+    ```javascript firestore.rules
+    rules_version = '2';
+    service cloud.firestore {
+      match /databases/{database}/documents {
+        match /users/{userId} {
+          allow read, write: if request.auth != null;
+        }
+        match /buyers/{buyerId} {
+          allow read, write: if request.auth != null;
+        }
+        match /drivers/{driverId} {
+          allow read: if request.auth != null;
+          allow write: if request.auth.uid == driverId;
+        }
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Configure Mapbox">
+    ### Get Mapbox Access Token
+
+    1. Create an account at [Mapbox](https://account.mapbox.com/)
+    2. Navigate to your [Access Tokens page](https://account.mapbox.com/access-tokens/)
+    3. Copy your default public token
+
+    ### Update Map Configuration
+
+    Open `lib/map.dart` and replace the Mapbox access token:
+
+    ```dart lib/map.dart
+    // Line 71 - Replace with your public token
+    var url = 'https://api.mapbox.com/directions/v5/mapbox/driving/'
+              '${dlong},${dlat};${widget.ulong},${widget.ulat}'
+              '?access_token=YOUR_PUBLIC_TOKEN_HERE';
+
+    // Line 139 - Replace with your secret token
+    'accessToken': 'YOUR_SECRET_TOKEN_HERE',
+    ```
+
+    <Warning>
+      The code currently has hardcoded tokens. In production, use environment variables or secure configuration management.
+    </Warning>
+  </Step>
+
+  <Step title="Enable Location Permissions">
+    <Tabs>
+      <Tab title="Android">
+        Add to `android/app/src/main/AndroidManifest.xml`:
+
+        ```xml AndroidManifest.xml
+        <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+        <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+        <uses-permission android:name="android.permission.INTERNET" />
+        ```
+      </Tab>
+
+      <Tab title="iOS">
+        Add to `ios/Runner/Info.plist`:
+
+        ```xml Info.plist
+        <key>NSLocationWhenInUseUsageDescription</key>
+        <string>This app needs access to location for delivery tracking</string>
+        <key>NSLocationAlwaysUsageDescription</key>
+        <string>This app needs access to location for real-time tracking</string>
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Run the App">
+    Connect your device or start an emulator, then run:
+
+    ```bash
+    flutter run
+    ```
+
+    For a release build:
+
+    ```bash
+    flutter run --release
+    ```
+
+    <Tip>
+      Use `flutter devices` to see all available devices and emulators.
+    </Tip>
+  </Step>
+</Steps>
+
+## First Run: Create Your Account
+
+When you first launch Trackmart, you'll see the welcome screen:
+
+### Authentication Options
+
+Trackmart supports two authentication methods:
+
+<Tabs>
+  <Tab title="Phone Number">
+    The default authentication method using SMS verification.
+
+    ```dart lib/login_page.dart
+    Future<void> verifyPhone() async {
+      await fAuth.verifyPhoneNumber(
+        phoneNumber: this._countryCode + this.phoneNo,
+        codeAutoRetrievalTimeout: autoRetrieve,
+        codeSent: smsCodeSent,
+        timeout: const Duration(seconds: 15),
+        verificationCompleted: verifiedSuccess,
+        verificationFailed: veriFailed
+      );
+    }
+    ```
+
+    **Steps:**
+    1. Select your country code (default: +254 for Kenya)
+    2. Enter your phone number
+    3. Choose a password
+    4. For new users: Enter your name and agree to terms
+    5. Tap "Sign up" or "Login"
+    6. Enter the SMS verification code sent to your phone
+  </Tab>
+
+  <Tab title="Email">
+    Alternative authentication using email and password.
+
+    ```dart lib/login_page.dart
+    Future<void> verifyEmail() async {
+      if (login) {
+        FirebaseUser user = await fAuth.signInWithEmailAndPassword(
+          email: email, 
+          password: _pin
+        );
+        if (user.isEmailVerified) {
+          await saveUserDetails(user);
+          widget.onSignedIn(user);
+        } else {
+          await user.sendEmailVerification();
+          showMessageDialog(
+            'Email is not verified, check $email for verification link'
+          );
+        }
+      }
+    }
+    ```
+
+    **Steps:**
+    1. Tap "Use Email instead"
+    2. Enter your email address
+    3. Choose a password
+    4. For new users: Enter your name and agree to terms
+    5. Tap "Sign up"
+    6. Check your email for verification link
+    7. Return to app and tap "Log in"
+  </Tab>
+</Tabs>
+
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  The app creates user profiles in both Firebase Realtime Database and Firestore for optimal performance.
 </Note>
+
+## Place Your First Order
+
+After authentication, you'll land on the home screen with three tabs:
+
+<Steps>
+  <Step title="Navigate to Request Tab">
+    The middle tab is the "Request" tab where you create orders.
+
+    ```dart lib/home_page.dart
+    TabController _tabController;
+
+    @override
+    void initState() {
+      super.initState();
+      _tabController = TabController(
+        vsync: this, 
+        length: 3, 
+        initialIndex: 1  // Starts on Request tab
+      );
+    }
+    ```
+  </Step>
+
+  <Step title="Select a Driver">
+    You have two options to find drivers:
+
+    <Accordion title="Option 1: Search by Name/Number">
+      Type a driver's name or phone number in the search field:
+
+      ```dart lib/home_page.dart
+      TextField(
+        decoration: InputDecoration(
+          labelText: 'Enter merchant\'s name or number:',
+        ),
+        onChanged: (value) {
+          setState(() {
+            _nameText = value;
+          });
+        },
+      )
+      ```
+    </Accordion>
+
+    <Accordion title="Option 2: Map View">
+      Tap the map icon in the app bar to see nearby drivers with distances and ETAs:
+
+      ```dart lib/home_page.dart
+      IconButton(
+        icon: Icon(Icons.map),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => MapPage2(
+                ulat: currentLat,
+                ulong: currentLong,
+                selectDriver: _selectDriver,
+              )
+            )
+          );
+        },
+      )
+      ```
+
+      The map shows:
+      - Your current location (blue pin)
+      - Available drivers (truck icons)
+      - Distance to each driver
+      - Estimated time of arrival
+    </Accordion>
+  </Step>
+
+  <Step title="Configure Order Details">
+    Set your order parameters:
+
+    ```dart lib/home_page.dart
+    Order makeOrderNow() {
+      return Order(
+        destlat: currentLat,
+        destlong: currentLong,
+        driverId: filteredDrivers[_selected].id,
+        driverName: filteredDrivers[_selected].name,
+        userId: currentUserId,
+        userName: currentUserName,
+        quantity: double.parse(_moneyController.text),
+        payment: _paymnt,  // 'Mobile money' or 'Cash'
+        price: rate,
+        unit: _unit,  // 'Truck' or 'Tonne'
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+      );
+    }
+    ```
+
+    **Quantity:** Use +/- buttons or type a number
+    **Unit:** Choose "Truck" or "Tonne" from dropdown
+    **Payment:** Select "Mobile money" or "Cash"
+
+    The app automatically calculates total cost based on current rates.
+  </Step>
+
+  <Step title="Submit Request">
+    Tap the blue "Request" button to send your order:
+
+    ```dart lib/home_page.dart
+    _requestDelivery(Order order, BuildContext context) async {
+      String key = 'O:${DateTime.now().millisecondsSinceEpoch}';
+      await databaseReference
+          .child('Drivers')
+          .child(order.driverId)
+          .child('requests')
+          .update({key: order.toMap(currentUserId)});
+      
+      await databaseReference
+          .child('buyers')
+          .child(currentUserId)
+          .child('requests')
+          .update({key: order.toMap(currentUserId)});
+    }
+    ```
+
+    You'll see a confirmation dialog with order summary. Tap "Request" to confirm.
+  </Step>
+
+  <Step title="Track Your Order">
+    Switch to the "Orders" tab to see your order status:
+
+    - **Requested:** Waiting for driver acceptance
+    - **In Transit:** Driver is on the way
+    - **Delivered:** Order completed
+
+    Tap any in-transit order to open the live map view with real-time tracking.
+  </Step>
+</Steps>
+
+## Testing the App
+
+<Warning>
+  For testing, you'll need at least two accounts: one buyer and one driver. The driver functionality is typically in a separate driver app.
+</Warning>
+
+### Manual Testing Checklist
+
+- [ ] Phone authentication with SMS verification
+- [ ] Email authentication with verification link
+- [ ] Location permissions granted
+- [ ] User profile creation in Firebase
+- [ ] View available drivers on map
+- [ ] Create order with different units and payment methods
+- [ ] View order in Orders tab
+- [ ] Chat with driver
+- [ ] Real-time location updates
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="SMS Verification Not Working">
+    **Issue:** Not receiving SMS codes during phone authentication.
+
+    **Solutions:**
+    - Verify Firebase Authentication is enabled for Phone provider
+    - Check that your Firebase project has billing enabled (required for SMS)
+    - Test with a Firebase test phone number in Authentication settings
+    - Check phone number format includes country code
+  </Accordion>
+
+  <Accordion title="Map Not Loading">
+    **Issue:** Map tiles not appearing or routes not calculating.
+
+    **Solutions:**
+    - Verify Mapbox access tokens are correct
+    - Check internet connectivity
+    - Ensure location permissions are granted
+    - Check browser console for API errors
+  </Accordion>
+
+  <Accordion title="Location Permission Denied">
+    **Issue:** App can't access device location.
+
+    **Solutions:**
+    - Go to device Settings > Apps > Trackmart > Permissions
+    - Enable Location permission
+    - On iOS, check Info.plist has location usage descriptions
+    - On Android, check AndroidManifest.xml has location permissions
+  </Accordion>
+
+  <Accordion title="Build Errors">
+    **Issue:** Flutter build fails with dependency errors.
+
+    **Solutions:**
+    ```bash
+    # Clean build files
+    flutter clean
+
+    # Get dependencies
+    flutter pub get
+
+    # Run pub upgrade
+    flutter pub upgrade
+
+    # Rebuild
+    flutter run
+    ```
+
+    <Note>
+      Some packages use older versions. Consider updating `pubspec.yaml` with latest compatible versions.
+    </Note>
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+Now that you have Trackmart running, explore these topics:
+
+<CardGroup cols={2}>
+  <Card title="Firebase Configuration" icon="fire" href="/configuration/firebase-setup">
+    Deep dive into Firebase services setup and security rules
+  </Card>
+  <Card title="Mapbox Setup" icon="map" href="/configuration/mapbox-integration">
+    Advanced mapping features and customization
+  </Card>
+  <Card title="Push Notifications" icon="bell" href="/configuration/notifications">
+    Configure Firebase Cloud Messaging for order updates
+  </Card>
+  <Card title="Development Guide" icon="code" href="/development/installation">
+    Set up your development environment and start building
+  </Card>
+</CardGroup>

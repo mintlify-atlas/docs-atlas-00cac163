@@ -1,0 +1,385 @@
+---
+title: Project Structure
+description: Understand the organization and architecture of the Trackmart Flutter application
+---
+
+## Overview
+
+Trackmart follows a standard Flutter project structure with organized directories for source code, assets, and platform-specific configurations. The application is built around a three-tab interface for chats, order requests, and order history.
+
+## Directory Structure
+
+```
+trackmart/
+├── android/              # Android-specific configuration
+├── ios/                  # iOS-specific configuration
+├── lib/                  # Dart source code
+├── assets/              # Images and other assets
+│   ├── images/
+│   └── launcher/
+├── test/                # Unit and widget tests
+├── test_driver/         # Integration tests
+├── pubspec.yaml         # Project dependencies and metadata
+└── README.md           # Project documentation
+```
+
+## Source Code Structure (`lib/`)
+
+The application source code is organized into modular Dart files, each responsible for specific features:
+
+### Core Files
+
+<Accordion title="main.dart - Application Entry Point">
+  **Location:** `lib/main.dart`
+  
+  The entry point of the application that initializes the Flutter app with Material Design theming.
+  
+  **Key Components:**
+  - `MyApp` widget: Root widget that sets up the app theme
+  - Custom color scheme: Teal primary color (`#004d40`) and blue accent (`#005B9A`)
+  - Routes to `RootPage` for authentication handling
+  
+  **Code Reference:** `lib/main.dart:6`
+</Accordion>
+
+<Accordion title="root_page.dart - Authentication & Navigation Root">
+  **Location:** `lib/root_page.dart`
+  
+  Manages authentication state and routing between login and home screens.
+  
+  **Key Features:**
+  - Firebase authentication state management
+  - Push notification configuration (Firebase Messaging)
+  - Local notification setup
+  - Email verification checks
+  - Device token registration
+  
+  **Authentication States:**
+  - `notSignedIn`: Shows login page
+  - `signedIn`: Shows home page
+  - `loading`: Shows splash screen with truck icon
+  
+  **Code Reference:** `lib/root_page.dart:18-24`
+</Accordion>
+
+<Accordion title="login_page.dart - User Authentication">
+  **Location:** `lib/login_page.dart`
+  
+  Handles user authentication flow including phone number and email verification.
+  
+  **Features:**
+  - Phone number authentication with OTP
+  - Email/password authentication
+  - Country code picker integration
+  - User profile creation
+  - SharedPreferences for local data storage
+  
+  **Code Reference:** `lib/login_page.dart`
+</Accordion>
+
+<Accordion title="home_page.dart - Main Application Interface">
+  **Location:** `lib/home_page.dart`
+  
+  The main interface after login featuring a three-tab layout.
+  
+  **Three Main Tabs:**
+  1. **Chats Tab**: List of drivers for messaging
+  2. **Request Tab**: Order creation interface with quantity, unit, and payment selection
+  3. **Orders Tab**: Order history categorized as Requested, In Transit, and Delivered
+  
+  **Key Functionality:**
+  - Real-time location tracking using Geolocator
+  - Firebase Realtime Database and Firestore integration
+  - Driver search and selection
+  - Dynamic pricing with currency conversion
+  - Order management (create, track, rate)
+  - Local database (SQLite) for offline support
+  
+  **Code Reference:** `lib/home_page.dart:48-56`
+</Accordion>
+
+### Feature Files
+
+<CardGroup cols={2}>
+  <Card title="map.dart" icon="map">
+    Interactive map view using flutter_map
+    - Display driver locations
+    - User location marker
+    - Route visualization
+    - Driver selection from map
+  </Card>
+  
+  <Card title="chat.dart" icon="comments">
+    Real-time messaging with drivers
+    - Firestore-based chat
+    - Image sharing support
+    - Message notifications
+    - Typing indicators
+  </Card>
+  
+  <Card title="settings.dart" icon="gear">
+    User profile management
+    - Profile photo upload
+    - Display name editing
+    - Account settings
+    - Firebase Storage integration
+  </Card>
+  
+  <Card title="support.dart" icon="life-ring">
+    Help and support page
+    - FAQs
+    - Contact information
+    - App guidance
+  </Card>
+</CardGroup>
+
+<CardGroup cols={2}>
+  <Card title="contact.dart" icon="address-book">
+    Contact information page
+    - Company details
+    - Phone and email links
+    - URL launcher integration
+  </Card>
+  
+  <Card title="about.dart" icon="info-circle">
+    About the application
+    - App information
+    - Version details
+    - Credits
+  </Card>
+  
+  <Card title="credit_card_page.dart" icon="credit-card">
+    Payment interface (card payments)
+    - Card input fields
+    - Payment processing
+    - BLoC pattern implementation
+  </Card>
+  
+  <Card title="credit_card_bloc.dart" icon="stream">
+    Business logic for card payments
+    - Stream-based state management
+    - Card validation
+    - Payment processing logic
+  </Card>
+</CardGroup>
+
+### Utility Files
+
+<Accordion title="uidata.dart - UI Constants">
+  **Location:** `lib/uidata.dart`
+  
+  Contains UI-related constants and data.
+  
+  **Includes:**
+  - Color schemes
+  - String constants
+  - Static UI data
+  - Asset paths
+</Accordion>
+
+<Accordion title="const.dart - Application Constants">
+  **Location:** `lib/const.dart`
+  
+  Global constants used throughout the application.
+  
+  **Typical Contents:**
+  - API endpoints
+  - Configuration values
+  - Default settings
+</Accordion>
+
+<Accordion title="profile_tile.dart - Reusable UI Component">
+  **Location:** `lib/profile_tile.dart`
+  
+  A reusable widget for displaying user profile information in a list tile format.
+</Accordion>
+
+## Platform-Specific Directories
+
+### Android Configuration
+
+<Info>
+  **Directory:** `android/`
+  
+  Contains Android-specific configuration files:
+  - `app/build.gradle`: App-level Gradle configuration
+  - `build.gradle`: Project-level Gradle configuration
+  - `app/src/main/AndroidManifest.xml`: App permissions and metadata
+  - `app/google-services.json`: Firebase configuration (not in version control)
+</Info>
+
+**Key Permissions Required:**
+- Location access (fine and coarse)
+- Internet access
+- Camera (for profile photos)
+- Storage (for image caching)
+
+### iOS Configuration
+
+<Info>
+  **Directory:** `ios/`
+  
+  Contains iOS-specific configuration files:
+  - `Runner.xcworkspace`: Xcode workspace
+  - `Runner/Info.plist`: App configuration and permissions
+  - `Runner/GoogleService-Info.plist`: Firebase configuration (not in version control)
+  - `Podfile`: CocoaPods dependencies
+</Info>
+
+**Key Permissions Required:**
+- Location (when in use and always)
+- Camera access
+- Photo library access
+- Notifications
+
+## Assets Directory
+
+```
+assets/
+├── images/          # App images and icons
+└── launcher/        # App launcher icons
+    └── icon.png
+```
+
+<Note>
+  Assets are declared in `pubspec.yaml` and must be registered before use:
+  ```yaml
+  flutter:
+    assets:
+      - assets/images/
+      - assets/launcher/
+  ```
+</Note>
+
+## Application Flow
+
+<Steps>
+  <Step title="App Launch">
+    `main.dart` initializes the app and displays `RootPage`
+  </Step>
+  
+  <Step title="Authentication Check">
+    `RootPage` checks Firebase auth state:
+    - If not signed in → Show `LoginPage`
+    - If signed in → Show `HomePage`
+    - While checking → Show loading screen
+  </Step>
+  
+  <Step title="Login Flow">
+    User authenticates via phone or email in `LoginPage`, then redirected to `HomePage`
+  </Step>
+  
+  <Step title="Main Interface">
+    `HomePage` displays three tabs:
+    1. Chats with drivers
+    2. Order request form
+    3. Order history and tracking
+  </Step>
+  
+  <Step title="Feature Navigation">
+    Users can navigate to:
+    - Map view (`map.dart`)
+    - Chat interface (`chat.dart`)
+    - Settings (`settings.dart`)
+    - Support and About pages
+  </Step>
+</Steps>
+
+## State Management
+
+The application uses multiple state management approaches:
+
+<CardGroup cols={2}>
+  <Card title="StatefulWidget" icon="react">
+    Most screens use Flutter's built-in StatefulWidget for local state management
+  </Card>
+  
+  <Card title="BLoC Pattern" icon="stream">
+    Credit card functionality uses BLoC (Business Logic Component) pattern for separation of concerns
+  </Card>
+  
+  <Card title="Firebase Realtime" icon="fire">
+    Real-time data updates from Firebase Database and Firestore using StreamBuilder
+  </Card>
+  
+  <Card title="SharedPreferences" icon="database">
+    Local persistent storage for user preferences and cached data
+  </Card>
+</CardGroup>
+
+## Data Storage
+
+<Tabs>
+  <Tab title="Firebase Realtime Database">
+    **Structure:**
+    ```
+    - Drivers/
+      - [driverId]/
+        - requests/
+        - profile info
+    - buyers/
+      - [userId]/
+        - requests/
+        - transit/
+        - delivered/
+        - profile info
+    ```
+    
+    **Used for:** Order requests, real-time location updates, driver-buyer relationships
+  </Tab>
+  
+  <Tab title="Cloud Firestore">
+    **Collections:**
+    - `users`: User profiles and authentication data
+    - `drivers`: Driver profiles and status
+    - `messages`: Chat messages between users and drivers
+    
+    **Used for:** User profiles, messaging, push tokens
+  </Tab>
+  
+  <Tab title="SQLite (sqflite)">
+    **Local Database:**
+    - Offline data caching
+    - Order history
+    - User preferences
+    
+    **Used for:** Offline functionality and data persistence
+  </Tab>
+  
+  <Tab title="SharedPreferences">
+    **Stored Data:**
+    - User display name
+    - Phone number
+    - Photo URL
+    - App settings
+    
+    **Used for:** Quick access to user data without database queries
+  </Tab>
+</Tabs>
+
+## Testing Structure
+
+<CardGroup cols={2}>
+  <Card title="Unit Tests" icon="vial">
+    **Location:** `test/`
+    
+    Test individual functions and classes in isolation
+  </Card>
+  
+  <Card title="Integration Tests" icon="vials">
+    **Location:** `test_driver/`
+    
+    Test complete user flows using flutter_gherkin for BDD-style testing
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation Guide" icon="download" href="/development/installation">
+    Set up your development environment
+  </Card>
+  <Card title="Dependencies" icon="box" href="/development/dependencies">
+    Explore the packages and libraries used
+  </Card>
+</CardGroup>

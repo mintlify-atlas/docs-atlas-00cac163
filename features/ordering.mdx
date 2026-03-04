@@ -1,0 +1,232 @@
+---
+title: "Order Management"
+description: "Learn how to create and manage product orders in Trackmart"
+---
+
+## Overview
+
+Trackmart's ordering system allows buyers to request product deliveries (such as sand and other construction materials) with real-time pricing and driver selection. The order workflow integrates quantity selection, dynamic pricing, payment methods, and driver assignment.
+
+## Order Creation Flow
+
+The order creation process follows these key steps:
+
+<Steps>
+  <Step title="Select a Driver">
+    Users can search for available drivers by name or phone number, or browse through the list of registered merchants.
+  </Step>
+  
+  <Step title="Configure Order Details">
+    Set the quantity, unit type (Truck or Tonne), and payment method (Mobile money or Cash).
+  </Step>
+  
+  <Step title="Review Pricing">
+    Real-time pricing is fetched and displayed, showing the cost per unit and total amount.
+  </Step>
+  
+  <Step title="Confirm and Submit">
+    Review the order details in a confirmation dialog before submitting the delivery request.
+  </Step>
+</Steps>
+
+## Product Selection
+
+Currently, Trackmart focuses on construction materials, primarily sand delivery.
+
+<Note>
+The product type is currently set to 'Sand' in the codebase, but the architecture supports expansion to other products.
+</Note>
+
+### Available Units
+
+<CardGroup cols={2}>
+  <Card title="Truck" icon="truck">
+    Order by full truck load
+  </Card>
+  <Card title="Tonne" icon="weight-scale">
+    Order by weight (metric tonnes)
+  </Card>
+</CardGroup>
+
+## Quantity Management
+
+Users can adjust order quantity through multiple methods:
+
+```dart
+void _minus() {
+  if (double.parse(_moneyController.text) >= 1) if (mounted)
+    setState(() {
+      _moneyController.text =
+          '${(double.tryParse(_moneyController.text) ?? 0) - 1}';
+      _moneyController2.text =
+          '${(double.parse(_moneyController.text) * (rate ?? 0)).toStringAsFixed(0)}';
+    });
+}
+
+void _plus() {
+  if (mounted)
+    setState(() {
+      _moneyController.text =
+          '${(double.tryParse(_moneyController.text) ?? 0) + 1}';
+      _moneyController2.text =
+          '${((double.tryParse(_moneyController.text) ?? 0) * (rate ?? 0)).toStringAsFixed(0)}';
+    });
+}
+```
+
+<Info>
+The minimum order quantity is 1 unit. The system automatically calculates the total price when quantity changes.
+</Info>
+
+## Dynamic Pricing
+
+Pricing is fetched dynamically and updates in real-time:
+
+```dart
+_moneyController.addListener(() {
+  if (_moneyController.text.isEmpty) {
+    if (mounted)
+      setState(() {
+        _moneyController2.text = "";
+      });
+  } else if (_focus.hasFocus) {
+    {
+      _moneyController2.text =
+          (double.parse(_moneyController.text) * (rate ?? 0))
+              .toStringAsFixed(0);
+    }
+  }
+});
+```
+
+The app displays:
+- **Rate per unit**: `1 [Unit] of [Product] costs UGX [Price]`
+- **Total amount**: Automatically calculated based on quantity × rate
+- **Currency**: UGX (Uganda Shillings)
+
+<Warning>
+Orders cannot be submitted if pricing information is unavailable. Ensure internet connectivity for rate fetching.
+</Warning>
+
+## Payment Methods
+
+Trackmart supports two payment methods:
+
+<Tabs>
+  <Tab title="Mobile Money">
+    The default payment method for digital transactions through mobile money services.
+  </Tab>
+  <Tab title="Cash">
+    Traditional cash payment upon delivery.
+  </Tab>
+</Tabs>
+
+## Order Data Structure
+
+Each order contains the following information:
+
+```dart
+Order makeOrderNow() {
+  return Order(
+    destlat: currentLat,
+    destlong: currentLong,
+    driverId: filteredDrivers[_selected].id,
+    driverName: filteredDrivers[_selected].name,
+    driverPhone: filteredDrivers[_selected].phone,
+    userId: currentUserId,
+    userName: currentUserName,
+    userPhone: currentUserPhone,
+    quantity: double.parse(_moneyController.text),
+    payment: _paymnt,
+    price: (rate ?? 0),
+    unit: _unit,
+    timestamp: DateTime.now().millisecondsSinceEpoch,
+  );
+}
+```
+
+<Accordion title="Order Object Fields">
+  - **destlat/destlong**: Delivery destination coordinates
+  - **driverId/driverName/driverPhone**: Selected driver information
+  - **userId/userName/userPhone**: Buyer information
+  - **quantity**: Amount ordered
+  - **payment**: Payment method
+  - **price**: Unit price at time of order
+  - **unit**: Measurement unit (Truck/Tonne)
+  - **timestamp**: Order creation time in milliseconds
+</Accordion>
+
+## Submitting Orders
+
+Orders are submitted to Firebase Realtime Database:
+
+```dart
+_requestDelivery(Order order, BuildContext context) async {
+  showModal('Requesting...', context);
+  String key = 'O:${DateTime.now().millisecondsSinceEpoch}';
+  await databaseReference
+      .child('Drivers')
+      .child(order.driverId)
+      .child('requests')
+      .update({
+    key: order.toMap(currentUserId),
+  });
+  await databaseReference
+      .child('buyers')
+      .child(currentUserId)
+      .child('requests')
+      .update({
+    key: order.toMap(currentUserId),
+  });
+  Navigator.of(context).pop();
+}
+```
+
+<Tip>
+Orders are stored under both the driver's and buyer's nodes in the database for efficient querying and real-time updates.
+</Tip>
+
+## Order Validation
+
+Before submission, the system validates:
+
+1. **Driver Selection**: A driver must be selected or searched
+2. **Quantity**: Must be a valid number greater than 0
+3. **Pricing**: Rate must be successfully fetched
+4. **Location**: User's current location must be available
+
+```dart
+if (_selected >= 0 &&
+    rate != null &&
+    double.tryParse(_moneyController.text) != null) {
+  // Show confirmation dialog
+} else {
+  // Show validation error
+}
+```
+
+## Navigation
+
+The ordering interface is accessible from the main tab navigation:
+
+```dart
+TabBar(
+  controller: _tabController,
+  tabs: [
+    Tab(text: ('Chats')),
+    Tab(text: ('Request')),  // Ordering tab
+    Tab(text: ('Orders')),
+  ],
+)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Track Orders" icon="map" href="/features/tracking">
+    Monitor delivery progress in real-time
+  </Card>
+  <Card title="Chat with Drivers" icon="message" href="/features/messaging">
+    Communicate directly with delivery drivers
+  </Card>
+</CardGroup>

@@ -1,97 +1,270 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Trackmart Documentation"
+description: "Real-time ordering, tracking, and delivery with Flutter, Firebase, and Mapbox"
+mode: "custom"
 ---
 
-## Setting up
+<div className="relative overflow-hidden bg-gradient-to-br from-[#004d40] via-[#00695c] to-[#005B9A] dark:from-[#003e33] dark:via-[#004d40] dark:to-[#003e33] py-20">
+  <div className="max-w-6xl mx-auto px-6 lg:px-8">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+      <div className="lg:col-span-7">
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6">
+          Welcome to Trackmart
+        </h1>
+        <p className="text-lg sm:text-xl text-white/90 max-w-2xl mb-8">
+          Build powerful ordering and delivery experiences with real-time tracking, Firebase authentication, and Mapbox integration.
+        </p>
+        <div className="flex flex-wrap gap-4">
+          <a
+            href="/quickstart"
+            className="inline-flex items-center px-6 py-3 rounded-lg bg-white text-[#004d40] font-semibold hover:bg-white/90 transition-colors"
+          >
+            Get Started
+          </a>
+          <a
+            href="/introduction"
+            className="inline-flex items-center px-6 py-3 rounded-lg border-2 border-white/30 bg-white/10 text-white font-semibold hover:bg-white/20 transition-colors"
+          >
+            Explore Features
+          </a>
+        </div>
+      </div>
+      <div className="lg:col-span-5 hidden lg:block">
+        <div className="relative">
+          <div className="absolute inset-0 bg-white/10 rounded-2xl blur-3xl"></div>
+          <div className="relative bg-white/5 backdrop-blur-sm border border-white/20 rounded-2xl p-8">
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <div className="text-white font-medium">Real-time tracking</div>
+                  <div className="text-white/60 text-sm">Live location updates</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <div className="text-white font-medium">Secure authentication</div>
+                  <div className="text-white/60 text-sm">Firebase Auth integration</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <div className="text-white font-medium">In-app messaging</div>
+                  <div className="text-white/60 text-sm">Driver-customer chat</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-Get your documentation site up and running in minutes.
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="text-center mb-12">
+    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Quick start</h2>
+    <p className="text-lg text-gray-600 dark:text-gray-400">Get up and running with Trackmart in minutes</p>
+  </div>
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+  <Steps>
+    <Step title="Install dependencies">
+      Clone the repository and install Flutter dependencies:
+      ```bash
+      git clone https://github.com/MichaelTendoSsemwanga/trackmart.git
+      cd trackmart
+      flutter pub get
+      ```
+    </Step>
+    
+    <Step title="Configure Firebase">
+      Set up Firebase for authentication and real-time database:
+      - Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
+      - Download `google-services.json` for Android and `GoogleService-Info.plist` for iOS
+      - Enable Firebase Authentication (Phone and Email)
+      - Enable Realtime Database and Cloud Firestore
+      
+      See the [Firebase setup guide](/configuration/firebase-setup) for detailed instructions.
+    </Step>
+    
+    <Step title="Add Mapbox API key">
+      Configure Mapbox for real-time tracking and route visualization:
+      ```dart
+      // In lib/map.dart, replace the access token
+      'https://api.mapbox.com/directions/v5/mapbox/driving/...?access_token=YOUR_MAPBOX_TOKEN'
+      ```
+      
+      Get your API key from [mapbox.com](https://www.mapbox.com/).
+    </Step>
+    
+    <Step title="Run the app">
+      Launch the app on your device or emulator:
+      ```bash
+      flutter run
+      ```
+      
+      You can now authenticate, place orders, and track deliveries in real-time.
+    </Step>
+  </Steps>
+</div>
 
-## Make it yours
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="text-center mb-12">
+    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Explore by topic</h2>
+    <p className="text-lg text-gray-600 dark:text-gray-400">Everything you need to build with Trackmart</p>
+  </div>
 
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
+  <CardGroup cols={2}>
     <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
+      title="Ordering system"
+      icon="shopping-cart"
+      href="/features/ordering"
+    >
+      Create and manage orders with product selection, quantity, and pricing
+    </Card>
+    <Card
+      title="Real-time tracking"
+      icon="location-dot"
+      href="/features/tracking"
+    >
+      Track driver locations with live updates using Mapbox and Firebase
+    </Card>
+    <Card
+      title="Delivery management"
+      icon="truck-fast"
+      href="/features/delivery"
+    >
+      Handle delivery workflows from dispatch to completion
+    </Card>
+    <Card
+      title="Messaging"
+      icon="messages"
+      href="/features/messaging"
+    >
+      Enable communication between customers and drivers via in-app chat
+    </Card>
+  </CardGroup>
+</div>
 
-## Create beautiful pages
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="text-center mb-12">
+    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">User guides</h2>
+    <p className="text-lg text-gray-600 dark:text-gray-400">Learn how to use Trackmart effectively</p>
+  </div>
 
-Everything you need to create world-class documentation.
+  <CardGroup cols={3}>
+    <Card
+      title="Authentication"
+      icon="key"
+      href="/guides/authentication"
+    >
+      Phone and email authentication setup
+    </Card>
+    <Card
+      title="Placing orders"
+      icon="cart-plus"
+      href="/guides/placing-orders"
+    >
+      Step-by-step order placement guide
+    </Card>
+    <Card
+      title="Tracking deliveries"
+      icon="map-location-dot"
+      href="/guides/tracking-deliveries"
+    >
+      Monitor deliveries in real-time
+    </Card>
+    <Card
+      title="Payment methods"
+      icon="credit-card"
+      href="/guides/payment-methods"
+    >
+      Configure mobile money and cash payments
+    </Card>
+    <Card
+      title="Driver communication"
+      icon="comment-dots"
+      href="/guides/driver-communication"
+    >
+      Chat with drivers during delivery
+    </Card>
+    <Card
+      title="Settings"
+      icon="gear"
+      href="/guides/authentication"
+    >
+      Manage your account preferences
+    </Card>
+  </CardGroup>
+</div>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="text-center mb-12">
+    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Development resources</h2>
+    <p className="text-lg text-gray-600 dark:text-gray-400">Extend and customize Trackmart for your needs</p>
+  </div>
 
-## Need inspiration?
+  <CardGroup cols={2}>
+    <Card
+      title="Installation"
+      icon="download"
+      href="/development/installation"
+    >
+      Set up your development environment
+    </Card>
+    <Card
+      title="Architecture"
+      icon="sitemap"
+      href="/development/architecture-overview"
+    >
+      Understand the app structure and data flow
+    </Card>
+    <Card
+      title="Theming"
+      icon="palette"
+      href="/development/theming"
+    >
+      Customize colors and UI components
+    </Card>
+    <Card
+      title="Testing"
+      icon="flask"
+      href="/development/testing"
+    >
+      Run tests with Flutter Driver and Gherkin
+    </Card>
+  </CardGroup>
+</div>
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<div className="mt-20 mb-16 max-w-5xl mx-auto px-6">
+  <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#004d40] to-[#005B9A] dark:from-[#003e33] dark:to-[#004d40] p-8 sm:p-12">
+    <div className="relative z-10 text-center">
+      <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">Ready to get started?</h2>
+      <p className="text-lg text-white/90 mb-8 max-w-2xl mx-auto">
+        Follow our quickstart guide to build your first ordering and tracking app with Trackmart
+      </p>
+      <a
+        href="/quickstart"
+        className="inline-flex items-center px-6 py-3 rounded-lg bg-white text-[#004d40] font-semibold hover:bg-white/90 transition-colors"
+      >
+        Start Building
+      </a>
+    </div>
+    <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent"></div>
+  </div>
+</div>

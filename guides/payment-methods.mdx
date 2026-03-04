@@ -1,0 +1,250 @@
+---
+title: Payment Methods
+description: Learn about available payment options including mobile money and cash payments
+---
+
+Trackmart supports flexible payment methods to accommodate different preferences. You can choose between mobile money and cash payment when placing your order.
+
+## Available Payment Options
+
+Trackmart currently offers two payment methods:
+
+<CardGroup cols={2}>
+  <Card title="Mobile Money" icon="mobile">
+    Pay digitally via mobile money transfer - convenient and secure.
+  </Card>
+  
+  <Card title="Cash" icon="money-bill">
+    Pay the driver in cash upon delivery - traditional and straightforward.
+  </Card>
+</CardGroup>
+
+## Selecting Your Payment Method
+
+You choose your payment method during the order placement process:
+
+<Steps>
+  <Step title="Navigate to Request tab">
+    Open the order placement screen in the Request tab.
+  </Step>
+  
+  <Step title="Configure your order">
+    After selecting your merchant and specifying quantity, you'll see the payment section.
+  </Step>
+  
+  <Step title="Choose payment method">
+    - Locate the payment dropdown (defaults to "Mobile money")
+    - Tap the dropdown to view available options
+    - Select either "Mobile money" or "Cash"
+  </Step>
+  
+  <Step title="Review total amount">
+    The amount displayed shows the total you'll pay based on quantity and current pricing.
+  </Step>
+  
+  <Step title="Submit your order">
+    Your payment method selection is saved with your order.
+  </Step>
+</Steps>
+
+<Note>
+  Payment method must be selected before placing your order. You cannot change the payment method after the order is submitted.
+</Note>
+
+## Mobile Money Payments
+
+### How It Works
+
+When you select mobile money as your payment method:
+
+<Accordion title="Mobile Money Payment Process">
+  1. Select "Mobile money" from the payment dropdown
+  2. Place your order as usual
+  3. The merchant will receive your order with mobile money payment indicated
+  4. Payment is typically processed via mobile money transfer
+  5. Confirm payment through your mobile money provider
+</Accordion>
+
+### Benefits of Mobile Money
+
+<CardGroup cols={2}>
+  <Card title="Convenience" icon="hand-holding-dollar">
+    No need to have physical cash on hand - pay directly from your mobile money account.
+  </Card>
+  
+  <Card title="Security" icon="shield">
+    Avoid carrying large amounts of cash. Transactions are recorded digitally.
+  </Card>
+  
+  <Card title="Speed" icon="bolt">
+    Faster checkout process - no need to count cash or provide change.
+  </Card>
+  
+  <Card title="Records" icon="receipt">
+    Automatic transaction records from your mobile money provider for easy tracking.
+  </Card>
+</CardGroup>
+
+<Tip>
+  Make sure you have sufficient balance in your mobile money account before placing an order with this payment method.
+</Tip>
+
+## Cash Payments
+
+### How It Works
+
+When you select cash as your payment method:
+
+<Accordion title="Cash Payment Process">
+  1. Select "Cash" from the payment dropdown
+  2. Note the total amount displayed on the order screen
+  3. Place your order
+  4. Prepare the cash amount before the driver arrives
+  5. Pay the driver directly in cash when they deliver your order
+  6. Get a receipt or confirmation from the driver if needed
+</Accordion>
+
+### Cash Payment Tips
+
+<CardGroup cols={2}>
+  <Card title="Exact Amount" icon="coins">
+    Try to have the exact amount or close to it. Drivers may not always have change for large bills.
+  </Card>
+  
+  <Card title="Prepare in Advance" icon="clock">
+    Have your cash ready before the driver arrives to speed up the transaction.
+  </Card>
+  
+  <Card title="Verify Amount" icon="calculator">
+    Double-check the total amount shown in your order before the driver arrives.
+  </Card>
+  
+  <Card title="Request Receipt" icon="file-invoice">
+    Ask the driver for a receipt or confirmation after payment if you need documentation.
+  </Card>
+</CardGroup>
+
+<Warning>
+  Only pay the driver the exact amount shown in your order. If a driver requests additional payment, contact Trackmart support.
+</Warning>
+
+## Payment Amount Calculation
+
+Understanding how your payment amount is calculated:
+
+### Pricing Formula
+
+```text
+Total Amount = Quantity × Price per Unit
+```
+
+**Example:**
+- Quantity: 3 Tonnes
+- Price per Tonne: UGX 50,000
+- **Total: UGX 150,000**
+
+### Real-Time Pricing
+
+<Info>
+  Prices are fetched in real-time from Trackmart servers. The price indicator at the bottom of the Request screen shows: "1 [Unit] of [Product] costs UGX [Amount]"
+</Info>
+
+Factors that affect pricing:
+- Selected unit type (Truck vs. Tonne)
+- Current market rates
+- Merchant pricing
+
+<Tabs>
+  <Tab title="Auto-Calculation">
+    The app automatically calculates the total amount as you adjust the quantity. The "Amount payed" field updates in real-time.
+  </Tab>
+  
+  <Tab title="Manual Adjustment">
+    You can manually edit the payment amount if needed, though the calculated amount is typically accurate.
+  </Tab>
+  
+  <Tab title="Refresh Pricing">
+    Tap the refresh icon next to the price display to get the latest rates.
+  </Tab>
+</Tabs>
+
+## Credit Card Payment (Future Feature)
+
+While Trackmart has infrastructure for credit card payments, this feature is not currently active in the production app.
+
+<Accordion title="Credit Card Feature Preview">
+  The app includes a credit card payment screen with:
+  - Card number entry
+  - Expiration date
+  - CVV security code
+  - Visual card preview
+  
+  This feature will be enabled in a future update to provide additional payment flexibility.
+</Accordion>
+
+## Payment Security
+
+Trackmart takes payment security seriously:
+
+<CardGroup cols={2}>
+  <Card title="Order Confirmation" icon="check-circle">
+    Always confirm order details and payment amount before submitting.
+  </Card>
+  
+  <Card title="Direct Payment Only" icon="hand-holding-dollar">
+    Pay only through official Trackmart payment methods. Never share payment info outside the app.
+  </Card>
+  
+  <Card title="Transaction Records" icon="list">
+    All orders are recorded in your account history with payment details.
+  </Card>
+  
+  <Card title="Support Available" icon="headset">
+    Contact Trackmart support immediately if you experience payment issues.
+  </Card>
+</CardGroup>
+
+## Changing Payment Methods
+
+<Info>
+  You must select your payment method before placing an order. Once an order is submitted, the payment method cannot be changed.
+</Info>
+
+If you need to use a different payment method:
+
+1. Cancel the current order (if possible based on order status)
+2. Place a new order with your preferred payment method
+
+Or:
+
+1. Contact the driver via in-app chat
+2. Discuss the possibility of changing payment method
+3. Note that this is at the driver's discretion
+
+## Common Payment Questions
+
+<AccordionGroup>
+  <Accordion title="Can I split payment between cash and mobile money?">
+    No, you must choose one payment method per order. If you need to split payment, place separate orders.
+  </Accordion>
+  
+  <Accordion title="What if I don't have enough cash when the driver arrives?">
+    This can delay your delivery. Always ensure you have sufficient cash ready before the driver arrives. You may be able to arrange mobile money transfer, but this depends on the driver.
+  </Accordion>
+  
+  <Accordion title="How do I get a refund?">
+    Contact Trackmart support through the Help or Contact options in the app menu. Provide your order details and reason for the refund request.
+  </Accordion>
+  
+  <Accordion title="Is there a payment processing fee?">
+    Check with your mobile money provider for any transaction fees they may charge. Trackmart's displayed price is the total amount you pay.
+  </Accordion>
+  
+  <Accordion title="Can I save my payment information?">
+    Currently, payment methods are selected per order. Future updates may include saved payment preferences.
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+  Never share your mobile money PIN, payment passwords, or personal financial information with drivers or anyone claiming to be from Trackmart.
+</Warning>

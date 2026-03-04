@@ -1,0 +1,465 @@
+---
+title: Firebase Setup
+description: Configure Firebase Authentication, Realtime Database, Cloud Firestore, and Storage for Trackmart
+---
+
+## Overview
+
+Trackmart uses Firebase as its backend infrastructure for authentication, real-time data synchronization, and cloud storage. This guide will walk you through setting up all necessary Firebase services.
+
+<Note>
+Ensure you have a Firebase account and have created a project in the [Firebase Console](https://console.firebase.google.com/).
+</Note>
+
+## Firebase Services Used
+
+Trackmart integrates the following Firebase services:
+
+<CardGroup cols={2}>
+  <Card title="Firebase Authentication" icon="key">
+    Phone and email authentication for users and drivers
+  </Card>
+  <Card title="Realtime Database" icon="database">
+    Real-time location tracking and order status updates
+  </Card>
+  <Card title="Cloud Firestore" icon="cloud">
+    User profiles, chat messages, and structured data storage
+  </Card>
+  <Card title="Cloud Storage" icon="folder">
+    Profile photos and image uploads
+  </Card>
+</CardGroup>
+
+## Dependencies
+
+The following Firebase packages are used in Trackmart:
+
+```yaml pubspec.yaml
+dependencies:
+  firebase_auth: ^0.11.1+7
+  firebase_database: 3.0.5
+  cloud_firestore: 0.12.7+1
+  firebase_storage: 3.0.4
+  firebase_messaging: 5.1.2  # For push notifications
+```
+
+## Step 1: Create Firebase Project
+
+<Steps>
+  <Step title="Create a new project">
+    Go to the [Firebase Console](https://console.firebase.google.com/) and click "Add project". Name your project "Trackmart" or your preferred name.
+  </Step>
+  
+  <Step title="Enable Google Analytics (Optional)">
+    Choose whether to enable Google Analytics for your project. This is recommended for tracking app usage.
+  </Step>
+  
+  <Step title="Wait for project creation">
+    Firebase will create your project and initialize the required services.
+  </Step>
+</Steps>
+
+## Step 2: Configure Android App
+
+<Steps>
+  <Step title="Register Android app">
+    In your Firebase project, click on the Android icon to add an Android app.
+    
+    - **Package name**: `com.example.sandtrack` (or your custom package name)
+    - **App nickname**: Trackmart Android
+    - **Debug signing certificate SHA-1**: Optional for development
+  </Step>
+  
+  <Step title="Download google-services.json">
+    Download the `google-services.json` file and place it in your Android app folder:
+    
+    ```bash
+    android/app/google-services.json
+    ```
+  </Step>
+  
+  <Step title="Configure build.gradle files">
+    Add the Google services plugin to your project-level `android/build.gradle`:
+    
+    ```gradle android/build.gradle
+    buildscript {
+      dependencies {
+        // Add this line
+        classpath 'com.google.gms:google-services:4.3.3'
+      }
+    }
+    ```
+    
+    The app-level `android/app/build.gradle` should already include:
+    
+    ```gradle android/app/build.gradle
+    apply plugin: 'com.google.gms.google-services'
+    
+    android {
+      defaultConfig {
+        minSdkVersion 18
+        multiDexEnabled true
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+Ensure `multiDexEnabled true` is set, as Firebase services require multidex support.
+</Warning>
+
+## Step 3: Configure iOS App
+
+<Steps>
+  <Step title="Register iOS app">
+    In your Firebase project, click on the iOS icon to add an iOS app.
+    
+    - **Bundle ID**: Match the bundle identifier in your `ios/Runner.xcodeproj`
+    - **App nickname**: Trackmart iOS
+  </Step>
+  
+  <Step title="Download GoogleService-Info.plist">
+    Download the `GoogleService-Info.plist` file and add it to your Xcode project:
+    
+    1. Open `ios/Runner.xcworkspace` in Xcode
+    2. Drag `GoogleService-Info.plist` into the Runner folder
+    3. Ensure "Copy items if needed" is checked
+  </Step>
+  
+  <Step title="Update Info.plist for authentication">
+    Add the URL scheme for Firebase Authentication in `ios/Runner/Info.plist`:
+    
+    ```xml ios/Runner/Info.plist
+    <key>CFBundleURLTypes</key>
+    <array>
+      <dict>
+        <key>CFBundleTypeRole</key>
+        <string>Editor</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>YOUR_REVERSED_CLIENT_ID</string>
+        </array>
+      </dict>
+    </array>
+    ```
+    
+    Find `YOUR_REVERSED_CLIENT_ID` in your `GoogleService-Info.plist` file.
+  </Step>
+</Steps>
+
+## Step 4: Enable Firebase Authentication
+
+<Steps>
+  <Step title="Navigate to Authentication">
+    In the Firebase Console, go to **Authentication** > **Sign-in method**.
+  </Step>
+  
+  <Step title="Enable Phone Authentication">
+    - Enable the **Phone** sign-in provider
+    - No additional configuration required for development
+    - For production, you may need to add SHA-1 certificate fingerprints
+  </Step>
+  
+  <Step title="Enable Email/Password Authentication">
+    - Enable the **Email/Password** sign-in provider
+    - Email verification is automatically supported
+  </Step>
+</Steps>
+
+### Authentication Implementation
+
+Trackmart implements dual authentication methods:
+
+<Tabs>
+  <Tab title="Phone Authentication">
+    ```dart lib/login_page.dart
+    Future<void> verifyPhone() async {
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: countryCode + phoneNo,
+        timeout: const Duration(seconds: 15),
+        verificationCompleted: (AuthCredential credential) async {
+          // Auto-verification successful
+          FirebaseUser user = await fAuth.createUserWithEmailAndPassword(
+            email: countryCode + phoneNo + '@sandtrackapp.com',
+            password: pin,
+          );
+          await saveUserDetails(user);
+        },
+        verificationFailed: (AuthException exception) {
+          showMessageDialog(exception.message);
+        },
+        codeSent: (String verificationId, [int forceCodeResend]) {
+          // Show SMS code input dialog
+        },
+      );
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Email Authentication">
+    ```dart lib/login_page.dart
+    Future<void> verifyEmail() async {
+      if (login) {
+        FirebaseUser user = await fAuth.signInWithEmailAndPassword(
+          email: email,
+          password: pin,
+        );
+        
+        if (user.isEmailVerified) {
+          await saveUserDetails(user);
+          widget.onSignedIn(user);
+        } else {
+          await user.sendEmailVerification();
+        }
+      } else {
+        FirebaseUser user = await fAuth.createUserWithEmailAndPassword(
+          email: email,
+          password: pin,
+        );
+        await user.sendEmailVerification();
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Step 5: Configure Realtime Database
+
+<Steps>
+  <Step title="Create Realtime Database">
+    In the Firebase Console, go to **Realtime Database** > **Create Database**.
+  </Step>
+  
+  <Step title="Choose location">
+    Select a database location closest to your users for optimal performance.
+  </Step>
+  
+  <Step title="Set security rules">
+    Start in **test mode** for development, then update rules for production:
+    
+    ```json
+    {
+      "rules": {
+        "Drivers": {
+          "$driverId": {
+            ".read": "auth != null",
+            ".write": "auth.uid === $driverId",
+            "requests": {
+              ".read": "auth.uid === $driverId",
+              ".write": "auth != null"
+            }
+          }
+        },
+        "buyers": {
+          "$buyerId": {
+            ".read": "auth.uid === $buyerId",
+            ".write": "auth.uid === $buyerId"
+          }
+        }
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+### Database Structure
+
+Trackmart uses the following Realtime Database structure:
+
+<Accordion title="View Database Schema">
+```json
+{
+  "Drivers": {
+    "driverId": {
+      "id": "string",
+      "displayName": "string",
+      "phoneNo": "string",
+      "photoUrl": "string",
+      "lat": "number",
+      "long": "number",
+      "status": "boolean",
+      "requests": {
+        "orderId": { /* order data */ }
+      }
+    }
+  },
+  "buyers": {
+    "userId": {
+      "id": "string",
+      "displayName": "string",
+      "phoneNo": "string",
+      "photoUrl": "string",
+      "lat": "number",
+      "long": "number",
+      "requests": { /* orders */ },
+      "transit": { /* active orders */ }
+    }
+  }
+}
+```
+</Accordion>
+
+<Info>
+Realtime Database is used for location tracking and order status updates that require real-time synchronization.
+</Info>
+
+## Step 6: Configure Cloud Firestore
+
+<Steps>
+  <Step title="Create Firestore database">
+    In the Firebase Console, go to **Firestore Database** > **Create Database**.
+  </Step>
+  
+  <Step title="Choose starting mode">
+    Select **test mode** for development. You'll update security rules later.
+  </Step>
+  
+  <Step title="Select location">
+    Choose a Firestore location (note: this cannot be changed later).
+  </Step>
+  
+  <Step title="Update security rules">
+    Set production-ready security rules:
+    
+    ```javascript
+    rules_version = '2';
+    service cloud.firestore {
+      match /databases/{database}/documents {
+        match /users/{userId} {
+          allow read, write: if request.auth != null && request.auth.uid == userId;
+        }
+        
+        match /buyers/{buyerId} {
+          allow read: if request.auth != null;
+          allow write: if request.auth != null && request.auth.uid == buyerId;
+        }
+        
+        match /drivers/{driverId} {
+          allow read: if request.auth != null;
+          allow write: if request.auth != null && request.auth.uid == driverId;
+        }
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+### Firestore Collections
+
+Trackmart uses Firestore for structured data:
+
+- **users**: User profiles and metadata
+- **buyers**: Buyer-specific information
+- **drivers**: Driver profiles and availability
+- **messages**: Chat messages between users and drivers
+
+## Step 7: Configure Cloud Storage
+
+<Steps>
+  <Step title="Enable Cloud Storage">
+    In the Firebase Console, go to **Storage** > **Get Started**.
+  </Step>
+  
+  <Step title="Set security rules">
+    Configure security rules for profile images:
+    
+    ```javascript
+    rules_version = '2';
+    service firebase.storage {
+      match /b/{bucket}/o {
+        match /profile_images/{userId}/{fileName} {
+          allow read: if request.auth != null;
+          allow write: if request.auth != null && request.auth.uid == userId;
+        }
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+## Step 8: Enable Persistence
+
+Trackmart enables offline persistence for better performance:
+
+```dart
+// Enable Realtime Database persistence
+FirebaseDatabase database = FirebaseDatabase.instance;
+database.setPersistenceEnabled(true);
+database.setPersistenceCacheSizeBytes(10000000); // 10MB cache
+
+// Enable Firestore persistence
+await Firestore.instance.settings(persistenceEnabled: true);
+```
+
+<Tip>
+Persistence allows the app to work offline and sync data when connectivity is restored.
+</Tip>
+
+## Verification
+
+To verify your Firebase setup:
+
+<Steps>
+  <Step title="Run the app">
+    ```bash
+    flutter run
+    ```
+  </Step>
+  
+  <Step title="Test authentication">
+    Try creating a new account with phone or email authentication.
+  </Step>
+  
+  <Step title="Check Firebase Console">
+    - Verify users appear in **Authentication** > **Users**
+    - Check data is written to **Realtime Database** and **Firestore**
+    - Confirm profile images upload to **Storage**
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="MultidexEnabled Error">
+    If you see dex-related errors, ensure `multiDexEnabled true` is set in `android/app/build.gradle`:
+    
+    ```gradle
+    android {
+      defaultConfig {
+        multiDexEnabled true
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Phone Authentication Not Working">
+    1. Verify SHA-1 fingerprint is added in Firebase Console (Android)
+    2. Check that phone authentication is enabled in Firebase Console
+    3. For iOS, ensure reverse client ID is added to Info.plist
+  </Accordion>
+  
+  <Accordion title="Permission Denied Errors">
+    Review your Realtime Database and Firestore security rules. For development, you can temporarily use:
+    
+    ```json
+    {
+      "rules": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Mapbox Integration" icon="map" href="./mapbox-integration">
+    Configure Mapbox for real-time location tracking and routing
+  </Card>
+  <Card title="Push Notifications" icon="bell" href="./notifications">
+    Set up Firebase Cloud Messaging for order updates
+  </Card>
+</CardGroup>

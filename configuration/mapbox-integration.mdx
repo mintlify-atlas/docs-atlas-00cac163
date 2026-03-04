@@ -1,0 +1,531 @@
+---
+title: Mapbox Integration
+description: Configure Mapbox for real-time location tracking, routing, and interactive maps in Trackmart
+---
+
+## Overview
+
+Trackmart uses Mapbox for displaying interactive maps, calculating routes between drivers and buyers, and providing real-time location tracking. This guide covers the complete Mapbox setup process.
+
+<Note>
+You'll need a Mapbox account and API tokens. Sign up at [mapbox.com](https://www.mapbox.com/) to get started.
+</Note>
+
+## Why Mapbox?
+
+Mapbox provides powerful mapping capabilities for Trackmart:
+
+<CardGroup cols={2}>
+  <Card title="Real-time Tracking" icon="location-dot">
+    Track driver locations in real-time on interactive maps
+  </Card>
+  <Card title="Route Calculation" icon="route">
+    Calculate optimal driving routes with distance and ETA
+  </Card>
+  <Card title="Custom Styling" icon="palette">
+    Customize map appearance with various styles
+  </Card>
+  <Card title="Offline Support" icon="download">
+    Cache map tiles for offline functionality
+  </Card>
+</CardGroup>
+
+## Dependencies
+
+Trackmart uses the following packages for map functionality:
+
+```yaml pubspec.yaml
+dependencies:
+  flutter_map: 0.7.0+2
+  geolocator: 5.1.1+1
+  flutter_polyline_points: 0.1.0
+  http: ^0.12.0  # For Mapbox API calls
+```
+
+## Step 1: Create Mapbox Account
+
+<Steps>
+  <Step title="Sign up for Mapbox">
+    Go to [mapbox.com](https://www.mapbox.com/) and create a free account.
+  </Step>
+  
+  <Step title="Navigate to Access Tokens">
+    After signing in, go to your [Account Dashboard](https://account.mapbox.com/) and click on **Tokens**.
+  </Step>
+  
+  <Step title="Create tokens">
+    You'll need two types of tokens:
+    
+    - **Public token** (starts with `pk.`): For client-side map display
+    - **Secret token** (starts with `sk.`): For server-side API calls
+  </Step>
+</Steps>
+
+<Warning>
+Never commit your secret token to version control. Use environment variables or secure storage for production.
+</Warning>
+
+## Step 2: Configure API Keys
+
+Trackmart uses Mapbox in two places:
+
+### Public Token (Map Display)
+
+Used for rendering map tiles in the Flutter app:
+
+```dart lib/map.dart
+TileLayerOptions(
+  urlTemplate: "https://api.tiles.mapbox.com/v4/"
+      "{id}/{z}/{x}/{y}@2x.png?access_token={accessToken}",
+  additionalOptions: {
+    'accessToken': 'pk.YOUR_PUBLIC_TOKEN_HERE',
+    'id': 'mapbox.streets',
+  },
+)
+```
+
+### Secret Token (Directions API)
+
+Used for calculating routes and ETAs:
+
+```dart lib/map.dart
+var url = 'https://api.mapbox.com/directions/v5/mapbox/driving/'
+    '${startLong},${startLat};${endLong},${endLat}'
+    '?access_token=sk.YOUR_SECRET_TOKEN_HERE';
+```
+
+<Tabs>
+  <Tab title="Development">
+    For development, you can hardcode tokens directly in the code (as shown above). Remember to replace them before committing.
+  </Tab>
+  
+  <Tab title="Production">
+    For production, use environment variables or a configuration file:
+    
+    ```dart
+    import 'package:flutter_dotenv/flutter_dotenv.dart';
+    
+    final publicToken = env['MAPBOX_PUBLIC_TOKEN'];
+    final secretToken = env['MAPBOX_SECRET_TOKEN'];
+    ```
+    
+    Add to `pubspec.yaml`:
+    ```yaml
+    dependencies:
+      flutter_dotenv: ^5.0.2
+    
+    assets:
+      - .env
+    ```
+    
+    Create `.env` file:
+    ```
+    MAPBOX_PUBLIC_TOKEN=pk.your_token_here
+    MAPBOX_SECRET_TOKEN=sk.your_token_here
+    ```
+  </Tab>
+</Tabs>
+
+## Step 3: Update Map Configuration
+
+Replace the placeholder tokens in your map implementation:
+
+<CodeGroup>
+```dart lib/map.dart (Lines 70-71, 139, 348)
+// Directions API - Line 70-71
+var url = 'https://api.mapbox.com/directions/v5/mapbox/driving/'
+    '${dlong},${dlat};${widget.ulong},${widget.ulat}'
+    '?access_token=YOUR_SECRET_TOKEN_HERE';
+
+// Map Tiles - Line 134-141
+TileLayerOptions(
+  urlTemplate: "https://api.tiles.mapbox.com/v4/"
+      "{id}/{z}/{x}/{y}@2x.png?access_token={accessToken}",
+  additionalOptions: {
+    'accessToken': 'YOUR_PUBLIC_TOKEN_HERE',
+    'id': 'mapbox.streets',
+  },
+)
+```
+</CodeGroup>
+
+## Step 4: Understanding Map Styles
+
+Mapbox offers various map styles. Trackmart uses `mapbox.streets` by default:
+
+<CardGroup cols={2}>
+  <Card title="mapbox.streets">
+    Standard street map with labels and points of interest
+  </Card>
+  <Card title="mapbox.light">
+    Light-themed map, great for data visualization overlays
+  </Card>
+  <Card title="mapbox.dark">
+    Dark-themed map for night mode
+  </Card>
+  <Card title="mapbox.satellite">
+    Satellite imagery for detailed terrain view
+  </Card>
+</CardGroup>
+
+To change the map style, update the `id` parameter:
+
+```dart
+additionalOptions: {
+  'accessToken': 'pk.your_token_here',
+  'id': 'mapbox.dark',  // Change this
+}
+```
+
+## Step 5: Route Calculation
+
+Trackmart uses the Mapbox Directions API to calculate routes between drivers and buyers:
+
+### How It Works
+
+<Steps>
+  <Step title="Get coordinates">
+    Fetch driver location from Firebase Realtime Database and buyer location from device GPS.
+  </Step>
+  
+  <Step title="Call Directions API">
+    Make an HTTP request to Mapbox Directions API with coordinates.
+  </Step>
+  
+  <Step title="Decode polyline">
+    Parse the response and decode the route geometry into map coordinates.
+  </Step>
+  
+  <Step title="Display route">
+    Render the polyline on the map with distance and ETA information.
+  </Step>
+</Steps>
+
+### Implementation
+
+```dart lib/map.dart
+_updateLocation(Position position) {
+  setState(() {
+    dlat = position.latitude;
+    dlong = position.longitude;
+  });
+  
+  // Build Directions API URL
+  var url = 'https://api.mapbox.com/directions/v5/mapbox/driving/'
+      '${dlong},${dlat};${widget.ulong},${widget.ulat}'
+      '?access_token=YOUR_SECRET_TOKEN_HERE';
+  
+  http.get(url).then((response) {
+    route = json.decode(response.body)['routes'][0];
+    
+    // Decode polyline geometry
+    var k = PolylinePoints().decodePolyline(route['geometry']);
+    
+    setState(() {
+      points = List.generate(k.length, (i) {
+        return LatLng(k[i].latitude, k[i].longitude);
+      });
+      
+      // Extract distance and duration
+      distance = '${(route['distance'] / 1000).toStringAsFixed(2)}km';
+      duration = '${(route['duration'] / 60).toStringAsFixed(0)}min';
+    });
+  });
+}
+```
+
+<Info>
+The Directions API returns distance in meters and duration in seconds. Trackmart converts these to kilometers and minutes for display.
+</Info>
+
+## Step 6: Real-time Driver Tracking
+
+Trackmart listens to Firebase Realtime Database updates to track driver locations:
+
+```dart lib/map.dart
+@override
+void initState() {
+  FirebaseDatabase.instance
+    .reference()
+    .child('Drivers')
+    .child(widget.driverId)
+    .onValue
+    .listen((e) {
+      if (mounted) {
+        Map<String, dynamic> map = e.snapshot.value.cast<String, dynamic>();
+        _updateLocation(Position(
+          longitude: map['long'].toDouble(),
+          latitude: map['lat'].toDouble(),
+        ));
+      }
+    });
+  super.initState();
+}
+```
+
+### How It Works
+
+1. **Driver app updates location** → Firebase Realtime Database
+2. **Database triggers listener** → Buyer app receives update
+3. **App calls Mapbox API** → Gets new route
+4. **Map updates** → Shows current driver position and route
+
+<Tip>
+This creates a seamless real-time tracking experience for buyers watching their delivery.
+</Tip>
+
+## Step 7: Map Features
+
+Trackmart's map implementation includes several key features:
+
+### Markers
+
+Display driver and buyer locations:
+
+```dart lib/map.dart
+MarkerLayerOptions(
+  markers: [
+    // Buyer marker
+    Marker(
+      width: 60.0,
+      height: 60.0,
+      point: LatLng(widget.ulat, widget.ulong),
+      builder: (ctx) => Column(
+        children: [
+          Text('You', style: TextStyle(backgroundColor: Colors.white)),
+          Icon(Icons.person_pin_circle, size: 30),
+        ],
+      ),
+    ),
+    // Driver marker
+    Marker(
+      width: 60.0,
+      height: 60.0,
+      point: LatLng(dlat, dlong),
+      builder: (ctx) => Column(
+        children: [
+          Text(widget.driver, style: TextStyle(backgroundColor: Colors.white)),
+          Icon(Icons.local_shipping, size: 30),
+        ],
+      ),
+    ),
+  ],
+)
+```
+
+### Polyline (Route)
+
+Display the driving route:
+
+```dart lib/map.dart
+PolylineLayerOptions(
+  polylines: [
+    Polyline(
+      points: points,
+      strokeWidth: 5.0,
+      color: Theme.of(context).accentColor,
+    )
+  ],
+)
+```
+
+### ETA Calculation
+
+Show estimated arrival time:
+
+```dart lib/map.dart
+void _eta() {
+  if (route != null) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return SimpleDialog(
+          title: Text('ETA'),
+          children: [
+            Text(
+              DateFormat('h:mm a').format(
+                DateTime.now().add(
+                  Duration(seconds: route['duration'].toInt())
+                )
+              ),
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+```
+
+## Step 8: Location Permissions
+
+Ensure location permissions are configured:
+
+<Tabs>
+  <Tab title="Android">
+    Add to `android/app/src/main/AndroidManifest.xml`:
+    
+    ```xml
+    <manifest>
+      <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+      <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+      <uses-permission android:name="android.permission.INTERNET" />
+    </manifest>
+    ```
+  </Tab>
+  
+  <Tab title="iOS">
+    Add to `ios/Runner/Info.plist`:
+    
+    ```xml
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Trackmart needs your location to show nearby drivers and track deliveries</string>
+    <key>NSLocationAlwaysUsageDescription</key>
+    <string>Trackmart needs your location to provide real-time delivery tracking</string>
+    ```
+  </Tab>
+</Tabs>
+
+## Step 9: Test the Integration
+
+<Steps>
+  <Step title="Run the app">
+    ```bash
+    flutter run
+    ```
+  </Step>
+  
+  <Step title="Grant location permissions">
+    Allow the app to access device location when prompted.
+  </Step>
+  
+  <Step title="View map">
+    Navigate to the map screen and verify:
+    - Map tiles load correctly
+    - Your location marker appears
+    - Driver markers are visible (if available)
+  </Step>
+  
+  <Step title="Test routing">
+    Select a driver to see:
+    - Route polyline between locations
+    - Distance and duration display
+    - ETA calculation
+  </Step>
+</Steps>
+
+## API Usage and Limits
+
+Mapbox free tier includes:
+
+- **Map loads**: 50,000 free per month
+- **Directions API**: 100,000 free requests per month
+
+<Warning>
+Monitor your usage in the Mapbox Dashboard to avoid unexpected charges. Consider implementing request caching for production apps.
+</Warning>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Map tiles not loading">
+    - Verify your public token is correct and has the proper scopes
+    - Check internet connectivity
+    - Ensure the token hasn't expired
+    - Look for CORS errors in debug console
+  </Accordion>
+  
+  <Accordion title="Routes not calculating">
+    - Verify your secret token is correct
+    - Check that coordinates are in the correct format (longitude, latitude)
+    - Ensure coordinates are valid geographic locations
+    - Check Mapbox API status page for outages
+  </Accordion>
+  
+  <Accordion title="Location not updating">
+    - Verify location permissions are granted
+    - Check Firebase Realtime Database for driver location updates
+    - Ensure GPS is enabled on the device
+    - Test with a physical device (emulators have limited GPS)
+  </Accordion>
+  
+  <Accordion title="Polyline not displaying">
+    - Verify `flutter_polyline_points` package is installed
+    - Check that route geometry is being decoded correctly
+    - Ensure points array is not empty
+    - Verify map bounds include the route coordinates
+  </Accordion>
+</AccordionGroup>
+
+## Advanced Features
+
+### Multiple Drivers Map
+
+Trackmart includes a feature to show all available drivers:
+
+```dart lib/map.dart (MapPage2)
+// Fetch all active drivers
+FirebaseDatabase.instance
+  .reference()
+  .child('Drivers')
+  .orderByChild('status')
+  .equalTo(true)
+  .onValue
+  .listen((e) {
+    Map<String, dynamic> map = e.snapshot.value?.cast<String, dynamic>();
+    
+    if (map != null) {
+      map.forEach((key, values) {
+        // Calculate route to each driver
+        var url = 'https://api.mapbox.com/directions/v5/mapbox/driving/'
+            '${values['long']},${values['lat']};${widget.ulong},${widget.ulat}'
+            '?access_token=YOUR_SECRET_TOKEN_HERE';
+        
+        // Display marker and distance for each driver
+      });
+    }
+  });
+```
+
+### Custom Map Controls
+
+Trackmart provides custom controls for better UX:
+
+```dart lib/map.dart
+// Center on user location
+IconButton(
+  icon: Icon(Icons.my_location),
+  onPressed: () {
+    _mapController.move(
+      LatLng(widget.ulat, widget.ulong),
+      _mapController.zoom,
+    );
+  },
+)
+
+// Center on driver location
+IconButton(
+  icon: Icon(Icons.local_shipping),
+  onPressed: () {
+    _mapController.move(
+      LatLng(dlat, dlong),
+      _mapController.zoom,
+    );
+  },
+)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Firebase Setup" icon="fire" href="./firebase-setup">
+    Configure real-time location updates with Firebase
+  </Card>
+  <Card title="Push Notifications" icon="bell" href="./notifications">
+    Notify users of driver location updates
+  </Card>
+</CardGroup>

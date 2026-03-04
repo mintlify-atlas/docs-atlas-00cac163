@@ -1,0 +1,440 @@
+---
+title: "Delivery Management"
+description: "Understand the delivery workflow, driver assignment, and order status tracking in Trackmart"
+---
+
+## Overview
+
+Trackmart manages the complete delivery lifecycle from order placement through completion. The system tracks orders across multiple states and provides real-time updates to both buyers and drivers.
+
+## Delivery States
+
+Orders move through three primary states:
+
+<Steps>
+  <Step title="Requested">
+    Order has been submitted but not yet accepted by the driver
+  </Step>
+  <Step title="In Transit">
+    Driver has accepted and is actively delivering the order
+  </Step>
+  <Step title="Delivered">
+    Order has been completed and delivered to the buyer
+  </Step>
+</Steps>
+
+<Note>
+Each state is stored separately in Firebase Realtime Database under the buyer's and driver's nodes for efficient querying.
+</Note>
+
+## Order Database Structure
+
+Orders are stored in multiple Firebase locations:
+
+```dart
+// Driver's pending requests
+databaseReference
+    .child('Drivers')
+    .child(order.driverId)
+    .child('requests')
+
+// Buyer's pending requests  
+databaseReference
+    .child('buyers')
+    .child(currentUserId)
+    .child('requests')
+
+// Active deliveries in transit
+databaseReference
+    .child('buyers')
+    .child(currentUserId)
+    .child('transit')
+```
+
+<Accordion title="Why Multiple Locations?">
+  Storing orders under both buyer and driver nodes allows:
+  - **Fast Queries**: Each user can query only their relevant orders
+  - **Real-time Updates**: Changes sync automatically to all parties
+  - **Offline Support**: Firebase caching enables offline access
+  - **Security**: Rules can be set per user type
+</Accordion>
+
+## Driver Assignment
+
+Drivers can be assigned through multiple methods:
+
+<Tabs>
+  <Tab title="Search">
+    Buyers can search for specific drivers by name or phone number:
+    ```dart
+    new TextField(
+      onChanged: (value) {
+        if (value.isEmpty) {
+          if (mounted)
+            setState(() {
+              _nameText = "";
+            });
+        } else {
+          if (mounted)
+            setState(() {
+              _selected = -1;
+              _nameText = _namefilter.text;
+            });
+        }
+      },
+      decoration: InputDecoration(
+          labelText: 'Enter merchant\'s name or number:'),
+      controller: _namefilter,
+    )
+    ```
+  </Tab>
+  <Tab title="Map View">
+    View all available drivers on an interactive map:
+    ```dart
+    IconButton(
+      icon: Icon(Icons.map),
+      onPressed: () {
+        Navigator.push(
+            context,
+            new MaterialPageRoute(
+                builder: (context) => new MapPage2(
+                      ulat: _TabbedGuyState.currentLat,
+                      ulong: _TabbedGuyState.currentLong,
+                      selectDriver: _selectDriver,
+                    )));
+      },
+    )
+    ```
+  </Tab>
+  <Tab title="Contact List">
+    Browse driver profiles from the Chats tab:
+    ```dart
+    StreamBuilder(
+      stream: firestore.collection('drivers').snapshots(),
+      builder: (context, snapshot) {
+        return ListView.separated(
+          separatorBuilder: (context, index) => Divider(),
+          itemBuilder: (context, index) =>
+              buildItem(context, snapshot.data.documents[index]),
+          itemCount: snapshot.data.documents.length,
+        );
+      },
+    )
+    ```
+  </Tab>
+</Tabs>
+
+## Order History
+
+The Orders tab displays all orders grouped by status:
+
+### Requested Orders
+
+```dart
+StreamBuilder(
+  stream: databaseReference
+      .child('buyers')
+      .child(currentUserId)
+      .child('requests')
+      .onValue,
+  builder: (context, snap) {
+    if (snap.hasData &&
+        !snap.hasError &&
+        snap.data.snapshot.value != null) {
+      List<HistoryItem> items = [];
+      Map<String, dynamic> map =
+          snap.data.snapshot.value.cast<String, dynamic>();
+      map.forEach((key, values) {
+        if (values != null) {
+          items.add(Order(
+            type: Order.REQUESTED,
+            key: key,
+            userId: values['userId'],
+            userName: values['userName'],
+            driverId: values['driverId'],
+            driverName: values['driverName'],
+            driverPhone: values['driverPhone'],
+            quantity: values['quantity'].toDouble(),
+            payment: values['payment'],
+            price: values['price'].toDouble(),
+            unit: values['unit'],
+            timestamp: values['timestamp'],
+          ).toHistoryItem());
+        }
+      });
+      return Column(children: items);
+    }
+  },
+)
+```
+
+### In Transit Orders
+
+```dart
+_buildInTransit() {
+  return StreamBuilder(
+    stream: databaseReference
+        .child('buyers')
+        .child(currentUserId)
+        .child('transit')
+        .onValue,
+    builder: (context, snap) {
+      if (snap.hasData &&
+          !snap.hasError &&
+          snap.data.snapshot.value != null) {
+        List<HistoryItem> items = [];
+        Map<String, dynamic> map =
+            snap.data.snapshot.value.cast<String, dynamic>();
+        map.forEach((key, values) {
+          if (values != null) {
+            items.add(Order(
+              getHistory: _getHistory,
+              key: key,
+              type: Order.TRANSIT,
+              userId: values['userId'],
+              userName: values['userName'],
+              driverId: values['driverId'],
+              driverName: values['driverName'],
+              driverPhone: values['driverPhone'],
+              quantity: values['quantity'].toDouble(),
+              payment: values['payment'],
+              price: values['price'].toDouble(),
+              unit: values['unit'],
+              timestamp: values['timestamp'],
+            ).toHistoryItem());
+          }
+        });
+        return Column(children: items);
+      }
+    },
+  );
+}
+```
+
+<CardGroup cols={3}>
+  <Card title="Collapsible Sections" icon="chevron-down">
+    Each status group can be expanded or collapsed for cleaner UI
+  </Card>
+  <Card title="Real-time Updates" icon="bolt">
+    Orders automatically appear when status changes
+  </Card>
+  <Card title="Timestamp Sorting" icon="clock">
+    Orders displayed with newest first
+  </Card>
+</CardGroup>
+
+## Order Information Display
+
+Each order card shows:
+
+- **Driver Name**: Who is handling the delivery
+- **Order Date**: When the order was placed
+- **Quantity & Unit**: Amount and measurement type
+- **Payment Method**: Mobile money or cash
+- **Total Price**: Calculated from quantity × unit price
+- **Status Actions**: Context-specific buttons (track, cancel, etc.)
+
+<Tip>
+Orders can be searched and filtered in the Orders tab using the search icon in the app bar.
+</Tip>
+
+## Order Workflow Actions
+
+Depending on order status, different actions are available:
+
+<Accordion title="Available Actions by Status">
+  **Requested Orders:**
+  - Cancel request
+  - View driver profile
+  - Modify order (if not yet accepted)
+  
+  **In Transit Orders:**
+  - Track on map
+  - Chat with driver
+  - View ETA
+  - Call driver
+  
+  **Delivered Orders:**
+  - Rate driver
+  - View receipt
+  - Reorder
+  - Report issue
+</Accordion>
+
+## Status Transition Logic
+
+While the buyer app focuses on viewing orders, status transitions occur based on driver actions:
+
+<Steps>
+  <Step title="Driver Accepts">
+    Order moves from `requests` to `transit` node
+  </Step>
+  <Step title="Driver En Route">
+    Location updates stream to buyer's tracking view
+  </Step>
+  <Step title="Driver Completes">
+    Order moves to `history` or `delivered` node
+  </Step>
+  <Step title="Buyer Confirms">
+    Final confirmation and rating submission
+  </Step>
+</Steps>
+
+## Delivery Notifications
+
+The app supports various notification triggers:
+
+- Order accepted by driver
+- Driver is approaching (geofence)
+- Delivery completed
+- Payment confirmation
+- Driver messages
+
+<Warning>
+Ensure Firebase Cloud Messaging is properly configured to receive push notifications for order updates.
+</Warning>
+
+## Location Requirements
+
+For successful delivery:
+
+```dart
+var geolocator = Geolocator();
+await geolocator
+    .getCurrentPosition(desiredAccuracy: LocationAccuracy.best)
+    .then((value) {
+  Position position = value;
+  _updateLocation(position);
+  var locationOptions =
+      LocationOptions(accuracy: LocationAccuracy.high, distanceFilter: 10);
+  geolocator.getPositionStream(locationOptions).listen((Position position) {
+    _updateLocation(position);
+  });
+});
+```
+
+<Info>
+The app requires location permissions to:
+- Set delivery destination
+- Show buyer location to driver
+- Calculate accurate ETAs
+- Update positions during delivery
+</Info>
+
+## Delivery Confirmation
+
+Before submitting an order, buyers see a confirmation dialog:
+
+```dart
+AlertDialog(
+  contentPadding: const EdgeInsets.all(16.0),
+  title: Text(
+    'Confirm',
+    style: TextStyle(color: Theme.of(context).accentColor),
+  ),
+  content: Text(
+    'Request delivery of ${_moneyController.text} $_unit${double.parse(_moneyController.text) > 1 ? 's' : ''} of $_product from ${filteredDrivers[_selected].name} for ${_moneyController2.text}',
+  ),
+  actions: <Widget>[
+    new FlatButton(
+        child: const Text('Cancel'),
+        onPressed: () {
+          deselect();
+          Navigator.of(context).pop();
+        }),
+    new FlatButton(
+      child: const Text('Request'),
+      onPressed: () {
+        _requestDelivery(order, context)
+            .then((v) {
+          Navigator.of(context).pop();
+          deselect();
+          _tabController.animateTo(2);  // Switch to Orders tab
+        });
+      },
+    ),
+  ],
+)
+```
+
+## Error Handling
+
+The delivery system handles various error scenarios:
+
+<Tabs>
+  <Tab title="No Drivers Available">
+    ```dart
+    if (map == null) {
+      setState(() {
+        nodrivers=true;
+      });
+      showDialog(context: context,
+          builder: (context){
+            return AlertDialog(
+              title: Text('No drivers!'),
+            );
+          }
+      );
+    }
+    ```
+  </Tab>
+  <Tab title="Validation Errors">
+    ```dart
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Unable to send'),
+          content: ListBody(
+            children: <Widget>[
+              _selected < 0
+                  ? Text('• Enter a number or select a driver')
+                  : Container(),
+              (double.tryParse(_moneyController.text) == null)
+                  ? Text('• Enter a quantity to order')
+                  : Container(),
+              (rate == null)
+                  ? Text('• Connect to the internet')
+                  : Container(),
+            ],
+          ),
+        );
+      },
+    );
+    ```
+  </Tab>
+</Tabs>
+
+## Order Search and Filtering
+
+Buyers can search through order history:
+
+```dart
+if (_searchText.isNotEmpty) {
+  List<HistoryItem> tempList = new List<HistoryItem>();
+  for (int i = 0; i < _history.length; i++) {
+    if (_history[i]
+            .driver
+            .toLowerCase()
+            .contains(_searchText.toLowerCase()) ||
+        _history[i]
+            .date
+            .toLowerCase()
+            .contains(_searchText.toLowerCase())) {
+      tempList.add(_history[i]);
+    }
+  }
+  _filteredHistory = tempList;
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Track Live Deliveries" icon="map-location-dot" href="/features/tracking">
+    Monitor active orders on the map
+  </Card>
+  <Card title="Chat with Drivers" icon="message" href="/features/messaging">
+    Communicate about delivery details
+  </Card>
+</CardGroup>

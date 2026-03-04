@@ -1,0 +1,515 @@
+---
+title: Testing
+description: Set up and run tests for Trackmart using flutter_test, flutter_driver, and flutter_gherkin
+---
+
+## Overview
+
+Trackmart uses multiple testing frameworks to ensure code quality and functionality. The testing setup includes unit tests, widget tests, and integration tests.
+
+## Testing Dependencies
+
+The app uses the following testing packages defined in `pubspec.yaml:46-52`:
+
+```yaml pubspec.yaml
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_driver:
+    sdk: flutter
+  test: any
+  flutter_gherkin: ^0.0.12
+```
+
+<CardGroup cols={3}>
+  <Card title="flutter_test" icon="vial">
+    For unit and widget tests
+  </Card>
+  
+  <Card title="flutter_driver" icon="car">
+    For integration and E2E tests
+  </Card>
+  
+  <Card title="flutter_gherkin" icon="cucumber">
+    For BDD-style tests with Gherkin syntax
+  </Card>
+</CardGroup>
+
+## Test Structure
+
+### Directory Organization
+
+```
+sandtrack/
+├── test/
+│   └── widget_test.dart        # Widget tests
+├── test_driver/
+│   ├── app.dart                # Test app entry point
+│   └── app_test.dart           # Integration tests
+└── lib/
+    └── main.dart               # Main app
+```
+
+<Info>
+**test/** directory contains unit and widget tests that run in the Flutter test environment.
+
+**test_driver/** directory contains integration tests that run against a real app instance.
+</Info>
+
+## Widget Tests
+
+### Basic Widget Test Structure
+
+The widget test in `test/widget_test.dart:1-31` demonstrates the testing pattern:
+
+```dart test/widget_test.dart
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sandtrack/main.dart';
+
+void main() {
+  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+    // Build our app and trigger a frame.
+    await tester.pumpWidget(MyApp());
+
+    // Verify that our counter starts at 0.
+    expect(find.text('0'), findsOneWidget);
+    expect(find.text('1'), findsNothing);
+
+    // Tap the '+' icon and trigger a frame.
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pump();
+
+    // Verify that our counter has incremented.
+    expect(find.text('0'), findsNothing);
+    expect(find.text('1'), findsOneWidget);
+  });
+}
+```
+
+### Running Widget Tests
+
+<Steps>
+  <Step title="Run All Tests">
+    ```bash
+    flutter test
+    ```
+  </Step>
+  
+  <Step title="Run Specific Test File">
+    ```bash
+    flutter test test/widget_test.dart
+    ```
+  </Step>
+  
+  <Step title="Run with Coverage">
+    ```bash
+    flutter test --coverage
+    ```
+  </Step>
+</Steps>
+
+### Writing Widget Tests
+
+<Tabs>
+  <Tab title="Finding Widgets">
+    ```dart
+    // Find by text
+    find.text('Trackmart')
+    
+    // Find by key
+    find.byKey(Key('request'))
+    
+    // Find by widget type
+    find.byType(ElevatedButton)
+    
+    // Find by icon
+    find.byIcon(Icons.add)
+    ```
+  </Tab>
+  
+  <Tab title="Interacting">
+    ```dart
+    // Tap a widget
+    await tester.tap(find.byKey(Key('request')));
+    await tester.pump();
+    
+    // Enter text
+    await tester.enterText(find.byType(TextField), 'Hello');
+    await tester.pump();
+    
+    // Scroll
+    await tester.drag(
+      find.byType(ListView),
+      Offset(0, -300)
+    );
+    await tester.pump();
+    ```
+  </Tab>
+  
+  <Tab title="Assertions">
+    ```dart
+    // Widget exists
+    expect(find.text('Trackmart'), findsOneWidget);
+    
+    // Widget doesn't exist
+    expect(find.text('NonExistent'), findsNothing);
+    
+    // Multiple widgets
+    expect(find.byType(ListTile), findsNWidgets(3));
+    
+    // Widget property
+    final button = tester.widget<MaterialButton>(
+      find.byKey(Key('request'))
+    );
+    expect(button.enabled, isTrue);
+    ```
+  </Tab>
+</Tabs>
+
+## Integration Tests (Flutter Driver)
+
+### Test App Entry Point
+
+The `test_driver/app.dart:1-11` file sets up the app for driver testing:
+
+```dart test_driver/app.dart
+import 'package:flutter_driver/driver_extension.dart';
+import 'package:sandtrack/main.dart' as app;
+
+void main() {
+  // This line enables the extension
+  enableFlutterDriverExtension();
+
+  // Call the `main()` function of your app or call `runApp` with any widget you
+  // are interested in testing.
+  app.main();
+}
+```
+
+<Note>
+This file enables the Flutter Driver extension, allowing the test runner to communicate with the app.
+</Note>
+
+### Integration Test Example
+
+The integration test in `test_driver/app_test.dart:1-36` demonstrates E2E testing:
+
+```dart test_driver/app_test.dart
+import 'package:flutter_driver/flutter_driver.dart';
+import 'package:test/test.dart';
+
+void main() {
+  group('Trackmart', () {
+    FlutterDriver driver;
+
+    setUpAll(() async {
+      driver = await FlutterDriver.connect();
+    });
+    
+    test('check flutter driver health', () async {
+      Health health = await driver.checkHealth();
+      print(health.status);
+    });
+    
+    test('Flutter drive methods demo', () async {
+      await driver.tap(find.byValueKey('request'));
+      await driver.enterText('Hello !');
+      await driver.waitFor(find.text('Hello !'));
+      await driver.enterText('World');
+      await driver.waitForAbsent(find.text('Hello !'));
+      print('World');
+      await driver.waitFor(find.byValueKey('request'));
+      await driver.tap(find.byValueKey('request'));
+      print('Button clicked');
+      await driver.waitFor(find.byValueKey('rate'));
+      await driver.scrollIntoView(find.byValueKey('rate'));
+      await driver.waitFor(find.text('No requested deliveries'));
+      print('I found you buddy !');
+    });
+    
+    tearDownAll(() async {
+      if (driver != null) {
+        await driver.close();
+      }
+    });
+  });
+}
+```
+
+### Running Integration Tests
+
+<Steps>
+  <Step title="Ensure Device is Running">
+    Start an emulator or connect a physical device:
+    ```bash
+    flutter devices
+    ```
+  </Step>
+  
+  <Step title="Run Driver Tests">
+    ```bash
+    flutter drive --target=test_driver/app.dart
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+Integration tests require a running device or emulator. They are slower than unit tests but provide end-to-end validation.
+</Warning>
+
+## Using Keys for Testing
+
+Trackmart uses `Key` widgets to make UI elements testable. Examples from `home_page.dart`:
+
+```dart
+// Button with key
+MaterialButton(
+  key: Key('request'),
+  onPressed: () { /* ... */ },
+  child: Text('Request'),
+)
+
+// Text with key
+Text(
+  '1 $_unit of $_product costs UGX ${(rate ?? 0).toStringAsFixed(0)}',
+  key: Key('rate'),
+)
+```
+
+### Adding Keys to Widgets
+
+<Steps>
+  <Step title="Identify Testable Elements">
+    Determine which widgets need to be tested (buttons, inputs, displays).
+  </Step>
+  
+  <Step title="Add Key Parameter">
+    ```dart
+    ElevatedButton(
+      key: Key('my_button'),
+      onPressed: () {},
+      child: Text('Click Me'),
+    )
+    ```
+  </Step>
+  
+  <Step title="Reference in Tests">
+    ```dart
+    // Widget test
+    await tester.tap(find.byKey(Key('my_button')));
+    
+    // Driver test
+    await driver.tap(find.byValueKey('my_button'));
+    ```
+  </Step>
+</Steps>
+
+## Flutter Gherkin (BDD Testing)
+
+### What is Gherkin?
+
+Gherkin allows you to write tests in a human-readable format:
+
+```gherkin
+Feature: Order Delivery
+  Scenario: User requests delivery
+    Given I am on the request page
+    When I enter quantity "5"
+    And I tap the "Request" button
+    Then I should see a confirmation dialog
+```
+
+### Setting Up Gherkin Tests
+
+<Steps>
+  <Step title="Create Feature File">
+    Create a `.feature` file in `test_driver/features/`:
+    ```bash
+    mkdir -p test_driver/features
+    touch test_driver/features/order.feature
+    ```
+  </Step>
+  
+  <Step title="Write Feature Scenarios">
+    ```gherkin test_driver/features/order.feature
+    Feature: Order Management
+      Scenario: Request sand delivery
+        Given I have the app open
+        When I tap the "Request" tab
+        And I enter quantity "5"
+        And I select unit "Tonne"
+        Then I should see the calculated price
+    ```
+  </Step>
+  
+  <Step title="Implement Step Definitions">
+    Create step definitions that map to your Gherkin steps.
+  </Step>
+  
+  <Step title="Run Gherkin Tests">
+    ```bash
+    flutter drive --target=test_driver/app.dart
+    ```
+  </Step>
+</Steps>
+
+<Info>
+Refer to the [flutter_gherkin documentation](https://pub.dev/packages/flutter_gherkin) for detailed setup and step definition examples.
+</Info>
+
+## Test Best Practices
+
+<Accordion title="Write Isolated Tests">
+  Each test should be independent and not rely on the state from other tests.
+  
+  ```dart
+  setUp(() {
+    // Initialize fresh state for each test
+  });
+  
+  tearDown(() {
+    // Clean up after each test
+  });
+  ```
+</Accordion>
+
+<Accordion title="Use Descriptive Names">
+  ```dart
+  // Good
+  testWidgets('Request button is disabled when quantity is invalid', ...);
+  
+  // Bad
+  testWidgets('Test 1', ...);
+  ```
+</Accordion>
+
+<Accordion title="Test Edge Cases">
+  ```dart
+  test('handles empty input', () { /* ... */ });
+  test('handles null values', () { /* ... */ });
+  test('handles maximum values', () { /* ... */ });
+  ```
+</Accordion>
+
+<Accordion title="Mock External Dependencies">
+  Mock Firebase and other external services to make tests fast and reliable:
+  
+  ```dart
+  import 'package:mockito/mockito.dart';
+  
+  class MockDatabase extends Mock implements FirebaseDatabase {}
+  
+  test('fetches user data', () async {
+    final mockDb = MockDatabase();
+    when(mockDb.reference()).thenReturn(/* mock reference */);
+    // Test with mock
+  });
+  ```
+</Accordion>
+
+## Testing Checklist
+
+<Steps>
+  <Step title="Unit Tests">
+    Test individual functions and classes in isolation.
+  </Step>
+  
+  <Step title="Widget Tests">
+    Test UI components and interactions.
+  </Step>
+  
+  <Step title="Integration Tests">
+    Test complete user flows from start to finish.
+  </Step>
+  
+  <Step title="Coverage Analysis">
+    Aim for high code coverage:
+    ```bash
+    flutter test --coverage
+    genhtml coverage/lcov.info -o coverage/html
+    open coverage/html/index.html
+    ```
+  </Step>
+</Steps>
+
+## Common Testing Patterns
+
+### Testing Async Operations
+
+```dart
+testWidgets('displays data after loading', (WidgetTester tester) async {
+  await tester.pumpWidget(MyApp());
+  
+  // Show loading state
+  expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  
+  // Wait for async operation
+  await tester.pumpAndSettle();
+  
+  // Verify loaded state
+  expect(find.text('Data Loaded'), findsOneWidget);
+});
+```
+
+### Testing Forms
+
+```dart
+testWidgets('submits form with valid data', (WidgetTester tester) async {
+  await tester.pumpWidget(MyApp());
+  
+  // Enter text in fields
+  await tester.enterText(find.byKey(Key('quantity')), '5');
+  await tester.pump();
+  
+  // Submit form
+  await tester.tap(find.byKey(Key('submit')));
+  await tester.pumpAndSettle();
+  
+  // Verify result
+  expect(find.text('Success'), findsOneWidget);
+});
+```
+
+### Testing Navigation
+
+```dart
+testWidgets('navigates to detail page', (WidgetTester tester) async {
+  await tester.pumpWidget(MyApp());
+  
+  // Tap navigation element
+  await tester.tap(find.text('View Details'));
+  await tester.pumpAndSettle();
+  
+  // Verify new page is shown
+  expect(find.text('Detail Page'), findsOneWidget);
+});
+```
+
+## Continuous Integration
+
+Integrate tests into your CI/CD pipeline:
+
+```yaml .github/workflows/test.yml
+name: Test
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: subosito/flutter-action@v2
+      - run: flutter pub get
+      - run: flutter test
+      - run: flutter drive --target=test_driver/app.dart
+```
+
+<Tip>
+**Test Early, Test Often**: Run tests frequently during development to catch issues early.
+</Tip>
+
+<Tip>
+**Golden Tests**: Consider using golden tests for visual regression testing of your UI components.
+</Tip>

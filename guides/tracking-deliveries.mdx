@@ -1,0 +1,230 @@
+---
+title: Tracking Deliveries
+description: Monitor your orders in real-time and view live driver location and estimated arrival time
+---
+
+Once your order is accepted and in transit, Trackmart provides powerful real-time tracking features to keep you informed about your delivery.
+
+## Accessing Order Tracking
+
+<Steps>
+  <Step title="Navigate to Orders tab">
+    Open the Trackmart app and tap on the **Orders** tab at the bottom of the screen.
+  </Step>
+  
+  <Step title="Find your active delivery">
+    Your orders are organized into three sections:
+    - **Requested** - Orders awaiting merchant acceptance
+    - **In Transit** - Active deliveries on their way
+    - **Delivered** - Completed orders
+    
+    Tap on the section headers to expand or collapse them.
+  </Step>
+  
+  <Step title="Open tracking view">
+    Tap on any order in the "In Transit" section to open the live tracking map.
+  </Step>
+</Steps>
+
+## Understanding the Tracking Map
+
+The tracking interface uses Mapbox to provide detailed, real-time location information:
+
+<CardGroup cols={2}>
+  <Card title="Your Location" icon="user">
+    Marked with a person pin and labeled "You" - this is your delivery destination.
+  </Card>
+  
+  <Card title="Driver Location" icon="truck">
+    Marked with a truck icon and the driver's name - updates automatically as they move.
+  </Card>
+  
+  <Card title="Route Visualization" icon="route">
+    A blue line shows the planned driving route from the driver's current location to you.
+  </Card>
+  
+  <Card title="ETA Information" icon="clock">
+    Displays distance remaining and estimated time at the bottom of the screen.
+  </Card>
+</CardGroup>
+
+## Live Tracking Features
+
+### Real-Time Updates
+
+<Note>
+  Driver locations update automatically as they travel. The route and ETA recalculate dynamically to reflect current conditions.
+</Note>
+
+The tracking system continuously monitors:
+- Driver's GPS position
+- Optimal driving route
+- Current traffic conditions
+- Estimated arrival time
+
+### Delivery Information Display
+
+At the bottom of the tracking map, you'll see:
+
+<CodeGroup>
+```text Distance
+2.45km (15min)
+```
+
+```text Format
+[Distance] ([Estimated Time])
+```
+</CodeGroup>
+
+- **Distance**: How far the driver is from your location
+- **Time**: Estimated minutes until arrival
+
+### Viewing Estimated Arrival Time
+
+<Accordion title="Check the ETA">
+  1. On the tracking map, look for the time badge at the bottom
+  2. Tap the clock icon or ETA badge to open the detailed dialog
+  3. The dialog shows the estimated arrival time as an actual clock time (e.g., "2:30 PM")
+  4. This time is calculated by adding the estimated duration to the current time
+</Accordion>
+
+<Tip>
+  Tap the help icon in the top right corner of the tracking screen to quickly view the ETA.
+</Tip>
+
+## Map Controls
+
+Navigate the tracking map with these controls:
+
+<Tabs>
+  <Tab title="Your Location">
+    Tap the **person location icon** in the bottom-left corner to center the map on your delivery location.
+  </Tab>
+  
+  <Tab title="Driver Location">
+    Tap the **truck icon** in the bottom-right corner to center the map on the driver's current position.
+  </Tab>
+  
+  <Tab title="Pan & Zoom">
+    - Drag with one finger to pan around the map
+    - Pinch with two fingers to zoom in/out
+    - The map uses street view for detailed navigation
+  </Tab>
+</Tabs>
+
+## Route Details
+
+The tracking system provides comprehensive routing information:
+
+<Steps>
+  <Step title="Route calculation">
+    Routes are calculated using Mapbox Directions API, which considers:
+    - Current traffic conditions
+    - Road types and speed limits
+    - Optimal driving paths
+  </Step>
+  
+  <Step title="Visual route display">
+    The route appears as a blue polyline connecting the driver's location to your destination, showing the exact path they'll follow.
+  </Step>
+  
+  <Step title="Dynamic updates">
+    As the driver moves, the route recalculates to always show the most current path and accurate ETA.
+  </Step>
+</Steps>
+
+## Monitoring Multiple Orders
+
+If you have multiple orders in transit:
+
+<Info>
+  Each order in the "In Transit" section can be tracked individually. Tap any order to view its specific tracking map.
+</Info>
+
+<CardGroup cols={3}>
+  <Card title="Order Details" icon="clipboard">
+    Each order shows the merchant name, quantity, and order time.
+  </Card>
+  
+  <Card title="Independent Tracking" icon="map">
+    Each order has its own tracking map with real-time updates.
+  </Card>
+  
+  <Card title="Switch Between Orders" icon="arrows-rotate">
+    Return to the Orders tab and select a different order to view its tracking.
+  </Card>
+</CardGroup>
+
+## Tracking Status Indicators
+
+<Accordion title="Understanding Order States">
+  **Requested**
+  - Order sent to merchant
+  - Awaiting acceptance
+  - No tracking available yet
+  
+  **In Transit**
+  - Merchant has accepted and is delivering
+  - Live tracking is active
+  - ETA is calculated and displayed
+  
+  **Delivered**
+  - Order completed
+  - Tracking is no longer active
+  - You can rate the delivery experience
+</Accordion>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Keep Location On" icon="location-dot">
+    Ensure your device location services remain enabled throughout the delivery for accurate positioning.
+  </Card>
+  
+  <Card title="Maintain Connection" icon="wifi">
+    An active internet connection is required for real-time tracking updates.
+  </Card>
+  
+  <Card title="Monitor Regularly" icon="eye">
+    Check the tracking map periodically to know when to prepare for the driver's arrival.
+  </Card>
+  
+  <Card title="Be Available" icon="phone">
+    Stay reachable in case the driver needs to contact you via the in-app chat.
+  </Card>
+</CardGroup>
+
+## Troubleshooting Tracking Issues
+
+<AccordionGroup>
+  <Accordion title="Driver location isn't updating">
+    - Check your internet connection
+    - Close and reopen the tracking screen
+    - The driver may be in an area with poor GPS signal
+    - Wait a few moments for the next update
+  </Accordion>
+  
+  <Accordion title="I can't see the route on the map">
+    - Ensure you have an active internet connection
+    - The route may still be calculating (look for a loading indicator)
+    - Try zooming out to see if the route is visible at a different zoom level
+  </Accordion>
+  
+  <Accordion title="The ETA seems inaccurate">
+    - ETA is estimated based on optimal driving conditions
+    - Traffic, road conditions, and route changes can affect actual arrival time
+    - The ETA updates automatically as conditions change
+    - Use it as an approximate guide rather than an exact time
+  </Accordion>
+  
+  <Accordion title="My location shows incorrectly">
+    - Check that location services are enabled for Trackmart
+    - Try moving to an area with better GPS signal
+    - Restart the app to refresh your location
+    - The driver sees the location you had when the order was placed
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+  If tracking shows the driver hasn't moved for an extended period, use the in-app chat to check if there are any issues with the delivery.
+</Warning>

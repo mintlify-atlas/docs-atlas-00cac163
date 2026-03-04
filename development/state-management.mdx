@@ -1,0 +1,1170 @@
+---
+title: State Management
+description: Comprehensive guide to state management patterns in Trackmart using StatefulWidget, SharedPreferences, and Firebase listeners
+---
+
+Trackmart implements state management using Flutter's built-in `StatefulWidget` pattern combined with `SharedPreferences` for persistence and Firebase real-time listeners for reactive updates. This approach provides a balance between simplicity and functionality for the app's requirements.
+
+## State Management Architecture
+
+<CardGroup cols={3}>
+  <Card title="Local State" icon="mobile">
+    Managed by `StatefulWidget` for UI-specific state like form inputs, tab selection, and loading states.
+  </Card>
+  
+  <Card title="Persisted State" icon="floppy-disk">
+    Stored in `SharedPreferences` for user preferences, authentication tokens, and cached user data.
+  </Card>
+  
+  <Card title="Remote State" icon="cloud">
+    Synchronized via Firebase listeners for real-time updates of orders, messages, and driver locations.
+  </Card>
+</CardGroup>
+
+## StatefulWidget Pattern
+
+Trackmart uses `StatefulWidget` extensively for managing component-level state.
+
+### Authentication State (RootPage)
+
+The `RootPage` manages the global authentication state:
+
+<CodeGroup>
+```dart State Definition
+enum AuthStatus { notSignedIn, signedIn, loading }
+
+class RootPageState extends State<RootPage> {
+  AuthStatus authStatus = AuthStatus.loading;
+  String currentUserId;
+  bool login = false;
+  Firestore firestore;
+  
+  @override
+  void initState() {
+    firestore = Firestore.instance;
+    super.initState();
+    
+    FirebaseAuth.instance.currentUser().then((user) {
+      setState(() {
+        authStatus = user == null 
+          ? AuthStatus.notSignedIn 
+          : AuthStatus.signedIn;
+        
+        if (user != null) {
+          currentUserId = user.uid;
+          if (user.email[0] != '+' && !user.isEmailVerified) {
+            login = true;
+            authStatus = AuthStatus.notSignedIn;
+          }
+        }
+      });
+    });
+  }
+}
+```
+
+```dart State Transitions
+void _signedIn(FirebaseUser user) async {
+  // Show loading dialog
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => AlertDialog(
+      title: Text('A moment'),
+      content: LinearProgressIndicator(),
+    )
+  );
+  
+  // Update tokens in Firebase
+  String token = await firebaseMessaging.getToken();
+  await FirebaseDatabase.instance
+      .reference()
+      .child('users')
+      .child(user.uid)
+      .update({'deviceToken': token});
+  
+  Navigator.of(context).pop();
+  
+  // Update state
+  setState(() {
+    currentUserId = user.uid;
+    authStatus = AuthStatus.signedIn;
+  });
+}
+
+void _signedOut() async {
+  await FirebaseAuth.instance.signOut();
+  
+  setState(() {
+    authStatus = AuthStatus.notSignedIn;
+  });
+}
+```
+
+```dart State Rendering
+@override
+Widget build(BuildContext context) {
+  switch (authStatus) {
+    case AuthStatus.notSignedIn:
+      return LoginPage(
+        onSignedIn: _signedIn,
+        login: this.login,
+      );
+    
+    case AuthStatus.signedIn:
+      return HomePage(
+        onSignedout: _signedOut,
+        currentUserId: this.currentUserId,
+      );
+    
+    case AuthStatus.loading:
+      return Scaffold(
+        body: Center(
+          child: Icon(
+            Icons.local_shipping,
+            size: 120,
+            color: Theme.of(context).primaryColor,
+          ),
+        ),
+      );
+  }
+}
+```
+</CodeGroup>
+
+<Note>
+The authentication state determines the entire app flow. All other screens are only accessible after reaching the `signedIn` state.
+</Note>
+
+### Home Page State
+
+The home page manages complex state including orders, drivers, and UI interactions:
+
+<Accordion title="Home Page State Variables">
+
+```dart home_page.dart
+class _TabbedGuyState extends State<TabbedGuy> 
+    with SingleTickerProviderStateMixin {
+  
+  // UI State
+  bool isLoading = false;
+  bool _stillLoading = true;
+  bool _isTransacting = false;
+  bool _forexError = false;
+  bool _isConverting = false;
+  bool requested = true;
+  bool transit = true;
+  bool delivered = true;
+  
+  // Form State
+  double quantity = 1;
+  String _searchText = "";
+  String _nameText = "";
+  String _unit = 'Tonne';
+  String _paymnt = 'Mobile money';
+  final String _product = 'Sand';
+  
+  // Data State
+  List<Driver> filteredDrivers = [];
+  List<HistoryItem> _history = [];
+  List<HistoryItem> _filteredHistory = [];
+  double rate;
+  static int _selected = -1;
+  
+  // User State
+  final String currentUserId;
+  String currentUserName;
+  String currentUserPhoto;
+  String currentUserPhone;
+  static double currentLat;
+  static double currentLong;
+  
+  // Firebase References
+  DatabaseReference databaseReference;
+  FirebaseDatabase database;
+  cf.Firestore firestore;
+  SharedPreferences prefs;
+  
+  // Controllers
+  TabController _tabController;
+  final TextEditingController _filter = TextEditingController();
+  final TextEditingController _namefilter = TextEditingController();
+  final TextEditingController _moneyController = TextEditingController();
+  final TextEditingController _moneyController2 = TextEditingController();
+  FocusNode myFocusNode;
+  FocusNode myFocusNode2;
+  FocusNode _focus;
+  FocusNode _focus2;
+}
+```
+
+**State Categories:**
+
+| Category | Variables | Purpose |
+|----------|-----------|----------|
+| **UI State** | `isLoading`, `_stillLoading`, `_isTransacting` | Control loading indicators and button states |
+| **Form State** | `quantity`, `_unit`, `_paymnt`, `_searchText` | Track user input across form fields |
+| **Data State** | `filteredDrivers`, `_history`, `rate` | Cache loaded data and filter results |
+| **User State** | `currentUserId`, `currentLat`, `currentLong` | Store current user information |
+| **Selection State** | `_selected`, `requested`, `transit`, `delivered` | Track UI selections and section visibility |
+
+</Accordion>
+
+### State Initialization
+
+The home page initializes state asynchronously:
+
+<Steps>
+  <Step title="Firebase Initialization">
+    Configure Firebase services with persistence
+    
+    ```dart
+    database = FirebaseDatabase.instance;
+    database.setPersistenceEnabled(true);
+    database.setPersistenceCacheSizeBytes(10000000);
+    
+    await cf.Firestore.instance.settings(persistenceEnabled: true);
+    firestore = cf.Firestore.instance;
+    ```
+  </Step>
+  
+  <Step title="Load Persisted Data">
+    Retrieve cached user data from SharedPreferences
+    
+    ```dart
+    prefs = await SharedPreferences.getInstance();
+    currentUserName = prefs.getString('displayName');
+    currentUserPhone = prefs.getString('phoneNo');
+    currentUserPhoto = prefs.getString('photoUrl');
+    ```
+  </Step>
+  
+  <Step title="Location Services">
+    Get current location and start tracking
+    
+    ```dart
+    await geolocator
+        .getCurrentPosition(desiredAccuracy: LocationAccuracy.best)
+        .then((value) {
+          _updateLocation(value);
+          geolocator.getPositionStream(locationOptions)
+              .listen(_updateLocation);
+        });
+    ```
+  </Step>
+  
+  <Step title="Setup Controllers">
+    Initialize text controllers and add listeners
+    
+    ```dart
+    _moneyController.addListener(() {
+      if (_focus.hasFocus) {
+        _moneyController2.text = 
+          (double.parse(_moneyController.text) * (rate ?? 0))
+            .toStringAsFixed(0);
+      }
+    });
+    
+    _filter.addListener(() {
+      setState(() {
+        _searchText = _filter.text;
+        _filteredHistory = _history.where((item) =>
+          item.driver.toLowerCase().contains(_searchText.toLowerCase())
+        ).toList();
+      });
+    });
+    ```
+  </Step>
+  
+  <Step title="Load History">
+    Fetch order history from local database
+    
+    ```dart
+    _getHistory();
+    ```
+  </Step>
+  
+  <Step title="Update Loading State">
+    Signal that initialization is complete
+    
+    ```dart
+    setState(() {
+      _stillLoading = false;
+    });
+    ```
+  </Step>
+</Steps>
+
+<Info>
+The `_stillLoading` state prevents the UI from rendering until all async initialization is complete, avoiding null reference errors.
+</Info>
+
+### Map State Management
+
+The map pages manage real-time location state:
+
+<CodeGroup>
+```dart MapPage State
+class _MapState extends State<MapPage> {
+  String distance;
+  String duration;
+  double dlat;  // Driver latitude
+  double dlong; // Driver longitude
+  List<LatLng> points = [];
+  LatLng _center;
+  MapController _mapController = MapController();
+  var route;
+  String summary = 'Steps';
+  
+  @override
+  void initState() {
+    // Listen to driver location updates
+    FirebaseDatabase.instance
+        .reference()
+        .child('Drivers')
+        .child(widget.driverId)
+        .onValue
+        .listen((e) {
+          if (mounted) {
+            Map<String, dynamic> map = 
+              e.snapshot.value.cast<String, dynamic>();
+            
+            _updateLocation(Position(
+              longitude: map['long'].toDouble(),
+              latitude: map['lat'].toDouble()
+            ));
+          }
+        });
+    
+    super.initState();
+  }
+  
+  _updateLocation(Position position) {
+    setState(() {
+      dlat = position.latitude;
+      dlong = position.longitude;
+    });
+    
+    // Fetch new route from Mapbox
+    fetchRoute();
+  }
+}
+```
+
+```dart MapPage2 State (Driver List)
+class _MapState2 extends State<MapPage2> {
+  bool nodrivers = false;
+  List<String> names;
+  List<String> distances;
+  List<int> durations;
+  List<LatLng> points = [];
+  List<String> keys;
+  
+  @override
+  void initState() {
+    // Listen to all available drivers
+    FirebaseDatabase.instance
+        .reference()
+        .child('Drivers')
+        .orderByChild('status')
+        .equalTo(true)
+        .onValue
+        .listen((e) {
+          Map<String, dynamic> map = 
+            e.snapshot.value?.cast<String, dynamic>();
+          
+          if (map != null) {
+            setState(() {
+              nodrivers = false;
+              names = [];
+              distances = [];
+              durations = [];
+              points = [];
+              keys = [];
+            });
+            
+            // Calculate distance to each driver
+            map.forEach((key, values) {
+              calculateRoute(key, values);
+            });
+          } else {
+            setState(() {
+              nodrivers = true;
+            });
+          }
+        });
+    
+    super.initState();
+  }
+}
+```
+</CodeGroup>
+
+<Warning>
+Always check `if (mounted)` before calling `setState()` in async callbacks to prevent updating state on disposed widgets.
+</Warning>
+
+### Chat State Management
+
+<Accordion title="Chat State Implementation">
+
+```dart chat.dart
+class ChatScreenState extends State<ChatScreen> {
+  String peerId;
+  String peerName;
+  String peerAvatar;
+  String id;
+  var listMessage;
+  String groupChatId;
+  SharedPreferences prefs;
+  
+  File imageFile;
+  bool isLoading;
+  bool isShowSticker;
+  String imageUrl;
+  
+  final TextEditingController textEditingController = 
+    TextEditingController();
+  final ScrollController listScrollController = 
+    ScrollController();
+  final FocusNode focusNode = FocusNode();
+  
+  @override
+  void initState() {
+    super.initState();
+    
+    focusNode.addListener(onFocusChange);
+    
+    isLoading = false;
+    isShowSticker = false;
+    imageUrl = '';
+    
+    readLocal();
+  }
+  
+  void onFocusChange() {
+    if (focusNode.hasFocus) {
+      // Hide sticker panel when keyboard appears
+      setState(() {
+        isShowSticker = false;
+      });
+    }
+  }
+  
+  void onSendMessage(String content, int type) {
+    if (content.trim() != '') {
+      textEditingController.clear();
+      
+      // Transaction ensures atomic write
+      firestore.runTransaction((transaction) async {
+        await transaction.set(
+          documentReference,
+          {
+            'idFrom': id,
+            'idTo': peerId,
+            'timestamp': DateTime.now().millisecondsSinceEpoch.toString(),
+            'content': content,
+            'type': type
+          },
+        );
+      });
+      
+      // Scroll to bottom
+      listScrollController.animateTo(
+        0.0,
+        duration: Duration(milliseconds: 300),
+        curve: Curves.easeOut
+      );
+    }
+  }
+}
+```
+
+**State Variables:**
+
+- `isLoading`: Shows loading indicator during image upload
+- `isShowSticker`: Toggles sticker picker visibility
+- `imageFile`: Holds selected image before upload
+- `listMessage`: Cached message list from StreamBuilder
+- `groupChatId`: Computed chat room identifier
+
+</Accordion>
+
+## SharedPreferences for Persistence
+
+Trackmart uses `SharedPreferences` to persist user data across app sessions.
+
+### Stored Data
+
+<Tabs>
+  <Tab title="User Profile">
+    ```dart
+    prefs.setString('id', userId);
+    prefs.setString('displayName', name);
+    prefs.setString('phoneNo', phone);
+    prefs.setString('photoUrl', photoUrl);
+    prefs.setString('aboutMe', bio);
+    ```
+    
+    **Retrieved in:**
+    - `home_page.dart:189` - HomePage initialization
+    - `chat.dart:124` - Chat screen initialization
+    - `settings.dart:63` - Settings page
+  </Tab>
+  
+  <Tab title="App Preferences">
+    ```dart
+    prefs.setString('unit', 'Tonne');
+    prefs.setString('quality', 'Fine');
+    ```
+    
+    **Retrieved in:**
+    - `settings.dart:66` - User preferences
+    - Used to pre-fill order form fields
+  </Tab>
+  
+  <Tab title="Authentication">
+    ```dart
+    // Stored during login
+    prefs.setString('id', user.uid);
+    
+    // Retrieved to check auth status
+    String userId = prefs.getString('id');
+    if (userId != null) {
+      // User is logged in
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Usage Pattern
+
+<CodeGroup>
+```dart Save to Preferences
+Future<void> saveUserProfile(User user) async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  
+  await prefs.setString('id', user.uid);
+  await prefs.setString('displayName', user.displayName);
+  await prefs.setString('phoneNo', user.phoneNumber);
+  await prefs.setString('photoUrl', user.photoUrl);
+}
+```
+
+```dart Load from Preferences
+Future<void> loadUserProfile() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  
+  setState(() {
+    currentUserId = prefs.getString('id') ?? '';
+    currentUserName = prefs.getString('displayName') ?? '';
+    currentUserPhone = prefs.getString('phoneNo') ?? '';
+    currentUserPhoto = prefs.getString('photoUrl') ?? '';
+  });
+}
+```
+
+```dart Clear Preferences (Logout)
+Future<void> logout() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  await prefs.clear();
+  
+  await FirebaseAuth.instance.signOut();
+}
+```
+</CodeGroup>
+
+<Tip>
+SharedPreferences provides instant access to cached data, reducing Firebase queries and improving app startup time.
+</Tip>
+
+## Firebase Real-time Listeners
+
+Trackmart uses Firebase listeners for reactive state updates.
+
+### StreamBuilder Pattern
+
+The app extensively uses `StreamBuilder` to rebuild UI when data changes:
+
+<CodeGroup>
+```dart Order Requests Stream
+StreamBuilder(
+  stream: databaseReference
+      .child('buyers')
+      .child(currentUserId)
+      .child('requests')
+      .onValue,
+  builder: (context, snap) {
+    if (snap.hasData && !snap.hasError && 
+        snap.data.snapshot.value != null) {
+      
+      List<HistoryItem> items = [];
+      Map<String, dynamic> map = 
+        snap.data.snapshot.value.cast<String, dynamic>();
+      
+      map.forEach((key, values) {
+        if (values != null) {
+          items.add(Order(
+            key: key,
+            userId: values['userId'],
+            driverId: values['driverId'],
+            quantity: values['quantity'].toDouble(),
+            // ... other fields
+          ).toHistoryItem());
+        }
+      });
+      
+      return Column(children: items);
+    } else {
+      return Container();
+    }
+  }
+)
+```
+
+```dart Chat Messages Stream
+StreamBuilder(
+  stream: firestore
+      .collection('messages')
+      .document(groupChatId)
+      .collection(groupChatId)
+      .orderBy('timestamp', descending: true)
+      .limit(20)
+      .snapshots(),
+  builder: (context, snapshot) {
+    if (!snapshot.hasData) {
+      return Center(
+        child: CircularProgressIndicator()
+      );
+    }
+    
+    listMessage = snapshot.data.documents;
+    
+    return ListView.builder(
+      itemBuilder: (context, index) =>
+        buildItem(index, snapshot.data.documents[index]),
+      itemCount: snapshot.data.documents.length,
+      reverse: true,
+      controller: listScrollController,
+    );
+  }
+)
+```
+
+```dart Driver List Stream
+StreamBuilder(
+  stream: firestore
+      .collection('drivers')
+      .snapshots(),
+  builder: (context, snapshot) {
+    if (!snapshot.hasData) {
+      return Center(
+        child: CircularProgressIndicator()
+      );
+    }
+    
+    return ListView.separated(
+      separatorBuilder: (context, index) => Divider(),
+      itemBuilder: (context, index) =>
+        buildItem(context, snapshot.data.documents[index]),
+      itemCount: snapshot.data.documents.length,
+    );
+  }
+)
+```
+</CodeGroup>
+
+### Direct Listeners
+
+Some components use direct `.listen()` for more control:
+
+```dart
+StreamSubscription<Event> orderSubscription;
+
+@override
+void initState() {
+  super.initState();
+  
+  orderSubscription = FirebaseDatabase.instance
+      .reference()
+      .child('Drivers')
+      .child(driverId)
+      .onValue
+      .listen((event) {
+        if (mounted) {
+          Map<String, dynamic> data = 
+            event.snapshot.value.cast<String, dynamic>();
+          
+          setState(() {
+            driverLat = data['lat'];
+            driverLong = data['long'];
+          });
+          
+          updateRoute();
+        }
+      });
+}
+
+@override
+void dispose() {
+  orderSubscription?.cancel();
+  super.dispose();
+}
+```
+
+<Warning>
+Always cancel stream subscriptions in `dispose()` to prevent memory leaks.
+</Warning>
+
+## State Update Patterns
+
+### Reactive Form Updates
+
+Text controllers automatically update related fields:
+
+```dart
+_moneyController.addListener(() {
+  if (_moneyController.text.isEmpty) {
+    setState(() {
+      _moneyController2.text = "";
+    });
+  } else if (_focus.hasFocus) {
+    setState(() {
+      _moneyController2.text = 
+        (double.parse(_moneyController.text) * (rate ?? 0))
+          .toStringAsFixed(0);
+    });
+  }
+});
+
+_moneyController2.addListener(() {
+  if (_moneyController2.text.isEmpty) {
+    setState(() {
+      _moneyController.text = "";
+    });
+  } else if (_focus2.hasFocus) {
+    if (rate != null) {
+      setState(() {
+        _moneyController.text = 
+          (double.parse(_moneyController2.text) / rate)
+            .toStringAsFixed(2);
+      });
+    }
+  }
+});
+```
+
+### Search Filtering
+
+Search state updates filter displayed lists:
+
+```dart
+_filter.addListener(() {
+  if (_filter.text.isEmpty) {
+    setState(() {
+      _searchText = "";
+      _filteredHistory = _history;
+    });
+  } else {
+    setState(() {
+      _searchText = _filter.text;
+      _filteredHistory = _history.where((item) =>
+        item.driver.toLowerCase().contains(_searchText.toLowerCase()) ||
+        item.date.toLowerCase().contains(_searchText.toLowerCase())
+      ).toList();
+    });
+  }
+});
+```
+
+### Selection State
+
+Track selected items across the app:
+
+```dart
+static int _selected = -1;
+
+select(index) {
+  filteredDrivers[index].selected = true;
+  filteredDrivers[index].deselect = deselect;
+  
+  setState(() {
+    _selected = index;
+  });
+}
+
+deselect() {
+  setState(() {
+    _selected = -1;
+  });
+}
+```
+
+### Loading States
+
+Manage multiple loading indicators:
+
+```dart
+// Global loading
+if (_stillLoading) {
+  return LoadingScreen();
+}
+
+// Operation-specific loading
+if (_isTransacting) {
+  return CircularProgressIndicator();
+}
+
+// Async operation loading
+await showDialog(
+  barrierDismissible: false,
+  builder: (context) => AlertDialog(
+    content: LinearProgressIndicator(),
+  )
+);
+```
+
+## State Lifecycle
+
+### Component Lifecycle
+
+<Steps>
+  <Step title="initState()">
+    Initialize state variables, set up listeners, load persisted data
+    
+    ```dart
+    @override
+    void initState() {
+      super.initState();
+      _tabController = TabController(length: 3, vsync: this);
+      _startup();
+    }
+    ```
+  </Step>
+  
+  <Step title="didChangeDependencies()">
+    Called when widget dependencies change (rarely used in Trackmart)
+  </Step>
+  
+  <Step title="build()">
+    Render UI based on current state
+    
+    ```dart
+    @override
+    Widget build(BuildContext context) {
+      return _stillLoading ? LoadingScreen() : MainScreen();
+    }
+    ```
+  </Step>
+  
+  <Step title="setState()">
+    Trigger rebuild when state changes
+    
+    ```dart
+    setState(() {
+      _selected = index;
+      filteredDrivers = newDrivers;
+    });
+    ```
+  </Step>
+  
+  <Step title="dispose()">
+    Clean up resources before widget removal
+    
+    ```dart
+    @override
+    void dispose() {
+      _tabController.dispose();
+      myFocusNode.dispose();
+      _filter.dispose();
+      subscription?.cancel();
+      super.dispose();
+    }
+    ```
+  </Step>
+</Steps>
+
+### State Persistence on App Lifecycle
+
+```dart
+class _TabbedGuyState extends State<TabbedGuy> 
+    with WidgetsBindingObserver {
+  
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+  
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.resumed:
+        // App came to foreground
+        updateRate();
+        break;
+      
+      case AppLifecycleState.paused:
+        // App went to background
+        saveState();
+        break;
+      
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+        break;
+    }
+  }
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Always Check mounted" icon="shield-check">
+    Before calling `setState()` in async callbacks:
+    
+    ```dart
+    if (mounted) {
+      setState(() {
+        // Update state
+      });
+    }
+    ```
+  </Card>
+  
+  <Card title="Dispose Resources" icon="trash">
+    Cancel subscriptions and dispose controllers:
+    
+    ```dart
+    @override
+    void dispose() {
+      controller.dispose();
+      subscription.cancel();
+      super.dispose();
+    }
+    ```
+  </Card>
+  
+  <Card title="Use Keys for Lists" icon="key">
+    Provide keys for stateful list items:
+    
+    ```dart
+    ListView.builder(
+      itemBuilder: (context, index) =>
+        DriverCard(
+          key: Key(driver.id),
+          driver: driver,
+        ),
+    )
+    ```
+  </Card>
+  
+  <Card title="Minimize setState Scope" icon="minimize">
+    Only update necessary parts:
+    
+    ```dart
+    // Good
+    setState(() {
+      _selected = index;
+    });
+    
+    // Bad - includes unrelated logic
+    setState(() {
+      _selected = index;
+      var data = processData();
+      updateDatabase(data);
+    });
+    ```
+  </Card>
+</CardGroup>
+
+## Common State Patterns
+
+### Loading State Pattern
+
+```dart
+class _MyWidgetState extends State<MyWidget> {
+  bool _isLoading = false;
+  String _error;
+  Data _data;
+  
+  Future<void> loadData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    
+    try {
+      final data = await fetchData();
+      
+      if (mounted) {
+        setState(() {
+          _data = data;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) return LoadingIndicator();
+    if (_error != null) return ErrorView(error: _error);
+    if (_data == null) return EmptyView();
+    return DataView(data: _data);
+  }
+}
+```
+
+### Form State Pattern
+
+```dart
+class _FormState extends State<FormWidget> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  bool _isValid = false;
+  
+  @override
+  void initState() {
+    super.initState();
+    
+    _nameController.addListener(_validateForm);
+    _emailController.addListener(_validateForm);
+  }
+  
+  void _validateForm() {
+    setState(() {
+      _isValid = _formKey.currentState?.validate() ?? false;
+    });
+  }
+  
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    super.dispose();
+  }
+}
+```
+
+## Performance Considerations
+
+<Accordion title="Optimization Tips">
+
+1. **Avoid unnecessary rebuilds**
+   ```dart
+   // Use const constructors when possible
+   const Text('Static text')
+   
+   // Extract static widgets
+   static final Widget staticHeader = Container(...);
+   ```
+
+2. **Limit StreamBuilder scope**
+   ```dart
+   // Good - only rebuilds ListView
+   StreamBuilder(
+     stream: ordersStream,
+     builder: (context, snapshot) => ListView(...),
+   )
+   
+   // Bad - rebuilds entire screen
+   StreamBuilder(
+     stream: ordersStream,
+     builder: (context, snapshot) => Scaffold(...),
+   )
+   ```
+
+3. **Debounce rapid updates**
+   ```dart
+   Timer _debounce;
+   
+   void onSearchChanged(String query) {
+     if (_debounce?.isActive ?? false) _debounce.cancel();
+     
+     _debounce = Timer(Duration(milliseconds: 500), () {
+       setState(() {
+         _searchQuery = query;
+       });
+     });
+   }
+   ```
+
+4. **Cache computed values**
+   ```dart
+   List<Driver> _allDrivers;
+   List<Driver> _filteredDrivers;
+   String _lastQuery;
+   
+   void filterDrivers(String query) {
+     if (query == _lastQuery) return;
+     
+     _lastQuery = query;
+     _filteredDrivers = _allDrivers
+       .where((d) => d.name.contains(query))
+       .toList();
+   }
+   ```
+
+</Accordion>
+
+## Testing State
+
+<CodeGroup>
+```dart Widget Test
+testWidgets('Updates state on button tap', (tester) async {
+  await tester.pumpWidget(MyWidget());
+  
+  expect(find.text('Not selected'), findsOneWidget);
+  
+  await tester.tap(find.byType(ElevatedButton));
+  await tester.pump();
+  
+  expect(find.text('Selected'), findsOneWidget);
+});
+```
+
+```dart State Test
+void main() {
+  test('Driver selection updates state', () {
+    final state = _TabbedGuyState(currentUserId: 'test');
+    
+    expect(state._selected, -1);
+    
+    state.select(0);
+    
+    expect(state._selected, 0);
+  });
+}
+```
+</CodeGroup>
+
+## Related Documentation
+
+<CardGroup cols={3}>
+  <Card title="Architecture Overview" icon="diagram-project" href="./architecture-overview">
+    Learn about the overall app structure
+  </Card>
+  
+  <Card title="Database Schema" icon="database" href="./database-schema">
+    Understand data storage patterns
+  </Card>
+  
+  <Card title="Testing Guide" icon="vial" href="./testing">
+    Learn how to test stateful components
+  </Card>
+</CardGroup>
